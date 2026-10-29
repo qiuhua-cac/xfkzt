@@ -12,18 +12,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/htmlmixed/htmlmixed.min.js"></script>
 
+<!-- 业界最强 HTML 解析器 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/htmlhint/0.16.0/htmlhint.min.js"></script>
 <!-- Prettier 排版 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prettier/2.8.8/standalone.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prettier/2.8.8/parser-html.min.js"></script>
 
-<!-- 👇 引入业界权威解析器 (保证零误报) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/htmlhint/0.16.0/htmlhint.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/acorn/8.8.2/acorn.min.js"></script>
-
 <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #f1f5f9; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-    
     .cm-search-current { background-color: #fde047 !important; border-bottom: 2px solid #eab308 !important; box-shadow: 0 0 4px rgba(234,179,8,0.5); }
 
     .top-bar { background: #fff; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
@@ -41,10 +38,7 @@
     .tabs-row { display: flex; padding: 5px 15px 0; gap: 4px; overflow-x: auto; align-items: flex-end; }
     .tab-item { padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-bottom: none; border-radius: 8px 8px 0 0; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; min-width: 100px; color: #64748b; position: relative; }
     .tab-item.active { background: #fff; border-bottom-color: #fff; color: #3b82f6; font-weight: 600; margin-bottom: -1px; }
-    .tab-name-input { outline: none; width: 60px; font-size: 13px; border: 1px solid #3b82f6; border-radius: 4px; padding: 2px 4px; display: none; }
-    .tab-item.renaming .tab-name-text { display: none; }
-    .tab-item.renaming .tab-name-input { display: inline-block; }
-    .tab-btn { font-size: 12px; cursor: pointer; color: #94a3b8; padding: 2px; }
+    .tab-btn { font-size: 14px; cursor: pointer; color: #94a3b8; padding: 2px; }
     .tab-btn:hover { color: #3b82f6; }
     .tab-item .close-tab { font-size: 14px; color: #94a3b8; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .tab-item .close-tab:hover { background: #fee2e2; color: #ef4444; }
@@ -279,6 +273,17 @@
         setupDropZone();
     });
 
+    // ==== 重命名按钮 ====
+    function promptRename(index) {
+        const currentName = windowsData[index].name;
+        const newName = prompt("请输入新的窗口名称：", currentName);
+        if (newName && newName.trim() !== '') {
+            windowsData[index].name = newName.trim();
+            savePersistedData();
+            renderTabs();
+        }
+    }
+
     // ==== 仓库历史下拉 ====
     function toggleRepoHistory(e) {
         e.stopPropagation();
@@ -294,7 +299,7 @@
     function selectRepo(repo) {
         document.getElementById('ghRepo').value = repo;
         document.getElementById('repoHistoryList').classList.remove('active');
-        saveToken(); // 顺便保存
+        saveToken();
     }
 
     document.addEventListener('click', (e) => {
@@ -305,31 +310,25 @@
         }
     });
 
-    // ==== 真·工业级分段语法检测（绝无假错） ====
+    // ==== 工业级 HTML 语法检测 ====
     function analyzeCode(code) {
         let errors = [];
-
-        // 1. 校验 HTML
-        let htmlResults = HTMLHint.verify(code, { "tag-pair": true, "tagname-lowercase": false, "attr-lowercase": false, "attr-value-double-quotes": false, "doctype-first": false });
-        htmlResults.forEach(err => {
-            // 忽略一些非致命的风格提示
-            if(err.rule.id !== 'spec-char-escape') { 
-                errors.push({ line: err.line, msg: `[HTML] ${err.message}` });
-            }
+        // 使用 HTMLHint 权威检测，仅开启关键规则，避免风格误报
+        let htmlResults = HTMLHint.verify(code, {
+            "tag-pair": true, 
+            "tagname-lowercase": false, 
+            "attr-lowercase": false, 
+            "attr-value-double-quotes": false, 
+            "doctype-first": false,
+            "spec-char-escape": false,
+            "id-unique": false,
+            "src-not-empty": false,
+            "attr-no-duplication": false,
+            "title-require": false
         });
-
-        // 2. 校验 JS 代码块
-        let jsBlocks = code.match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi) || [];
-        jsBlocks.forEach(block => {
-            let cleanJs = block.replace(/<\/?script[^>]*>/gi, '');
-            if (cleanJs.trim() === '') return;
-            try {
-                acorn.parse(cleanJs, { ecmaVersion: 2022 }); // 用最强的 ACORN 引擎解析
-            } catch (err) {
-                // 把报错行号映射回整个文件的真实行号
-                const blockStartLine = code.substring(0, code.indexOf(block)).split('\n').length;
-                errors.push({ line: err.loc.line + blockStartLine - 1, msg: `[JS] ${err.message}` });
-            }
+        
+        htmlResults.forEach(err => {
+            errors.push({ line: err.line, msg: `[HTML] ${err.message}` });
         });
 
         return errors;
@@ -358,10 +357,10 @@
         currentErrors = analyzeCode(code);
 
         if (currentErrors.length > 0) {
-            statusBar.textContent = `❌ 发现 ${currentErrors.length} 处语法错误，点击此处展开详情修改`;
+            statusBar.textContent = `❌ 发现 ${currentErrors.length} 处错误，点击此处展开详情修改`;
             statusBar.className = 'status-bar error';
         } else {
-            statusBar.textContent = '✅ 语法检查通过，未发现任何解析错误';
+            statusBar.textContent = '✅ 语法检查通过，未发现明显的标签缺失';
             statusBar.className = 'status-bar ok';
             toggleErrorDrawer(false);
         }
@@ -374,7 +373,7 @@
         if (currentErrors.length === 0) {
             if (forceOpen) {
                 body.innerHTML = `<div class="error-item" style="background:#f0fdf4; color:#15803d; border-color:#bbf7d0;">
-                    <span>✅ 语法检查通过，未发现任何解析错误。可以放心提交。</span>
+                    <span>✅ 语法检查通过，未发现错误。可以放心提交。</span>
                 </div>`;
                 drawer.classList.add('open');
             } else {
@@ -502,7 +501,6 @@
         finally { document.getElementById('pushBtn').disabled = false; }
     }
 
-    // ==== 搜索逻辑 ====
     function handleSearchKey(e) {
         if (e.key === 'Enter') { e.preventDefault(); doSearch(e.shiftKey ? 'prev' : 'next'); }
     }
@@ -551,7 +549,6 @@
 
     function clearSearch() { document.getElementById('searchInput').value = ''; clearSearchHighlights(); }
 
-    // ==== UI 交互 ====
     function switchRightTab(t) { 
         if (t === 'edit') { 
             document.getElementById('editorArea').classList.add('active'); 
@@ -591,7 +588,6 @@
         } 
     }
 
-    // ==== 基础数据同步 ====
     function initWindowData() { return { name: `窗口 ${windowsData.length + 1}`, content: DEFAULT_TEXT, logs: [], history: [] }; }
     function savePersistedData() {
         localStorage.setItem('rescue_windows_data', JSON.stringify(windowsData));
@@ -624,29 +620,11 @@
     function renderTabs() { 
         document.getElementById('tabsRow').innerHTML = windowsData.map((w, i) => `
             <div class="tab-item ${i === activeWindowIndex ? 'active' : ''}" onclick="switchWindow(${i})">
-                <span class="tab-name-text">${w.name}</span>
-                <input class="tab-name-input" onblur="this.parentElement.classList.remove('renaming')" onkeydown="if(event.key==='Enter'){this.blur();}">
-                <span class="tab-btn" onclick="event.stopPropagation(); startRename(${i})" title="重命名">✏️</span>
+                <span>${w.name}</span>
+                <span class="tab-btn" onclick="event.stopPropagation(); promptRename(${i})" title="重命名">✏️</span>
                 ${windowsData.length > 1 ? `<span class="close-tab" onclick="closeWindow(event, ${i})">×</span>` : ''}
             </div>
         `).join('') + `<button class="add-tab-btn" onclick="createNewWindow()">➕</button>`; 
-    }
-
-    function startRename(index) {
-        const tabEl = document.querySelectorAll('.tab-item')[index];
-        if (!tabEl) return;
-        tabEl.classList.add('renaming');
-        const input = tabEl.querySelector('.tab-name-input');
-        input.value = windowsData[index].name;
-        input.focus();
-        
-        const finish = () => {
-            tabEl.classList.remove('renaming');
-            const newName = input.value.trim();
-            if (newName) { windowsData[index].name = newName; savePersistedData(); renderTabs(); }
-        };
-        input.onblur = finish;
-        input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } };
     }
 
     function createNewWindow() { windowsData.push(initWindowData()); savePersistedData(); switchWindow(windowsData.length - 1); }
