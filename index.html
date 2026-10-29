@@ -12,32 +12,41 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/htmlmixed/htmlmixed.min.js"></script>
 
+<!-- Prettier 格式化 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prettier/2.8.8/standalone.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prettier/2.8.8/parser-html.min.js"></script>
+
 <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #f1f5f9; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     
-    /* 搜索高亮：纯黄光 */
     .cm-search-current { background-color: #fde047 !important; border-bottom: 2px solid #eab308 !important; box-shadow: 0 0 4px rgba(234,179,8,0.5); }
 
-    /* 顶部配置 */
     .top-bar { background: #fff; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
     .config-row { padding: 8px 15px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid #f1f5f9; }
     .config-row input { padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; outline: none; }
     
-    /* 多窗口标签 */
+    /* 仓库下拉历史 */
+    .repo-selector-wrapper { position: relative; display: flex; align-items: center; }
+    .repo-selector-wrapper input { width: 100px; }
+    .repo-dropdown-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; padding: 2px 4px; color: #475569; }
+    .repo-history-list { position: absolute; top: 100%; left: 0; width: 120px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; display: none; max-height: 200px; overflow-y: auto; margin-top: 4px; }
+    .repo-history-list.active { display: block; }
+    .repo-history-item { padding: 6px 10px; font-size: 12px; cursor: pointer; color: #334155; }
+    .repo-history-item:hover { background: #f1f5f9; color: #3b82f6; }
+
     .tabs-row { display: flex; padding: 5px 15px 0; gap: 4px; overflow-x: auto; align-items: flex-end; }
-    .tab-item { padding: 8px 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-bottom: none; border-radius: 8px 8px 0 0; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; min-width: 100px; color: #64748b; position: relative; }
+    .tab-item { padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-bottom: none; border-radius: 8px 8px 0 0; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; min-width: 100px; color: #64748b; position: relative; }
     .tab-item.active { background: #fff; border-bottom-color: #fff; color: #3b82f6; font-weight: 600; margin-bottom: -1px; }
-    
-    /* 双击改名 */
-    .tab-name { outline: none; min-width: 30px; display: inline-block; padding: 2px 4px; border: 1px solid transparent; border-radius: 4px; }
-    .tab-name[contenteditable="true"] { background: #fff; border-color: #3b82f6; cursor: text; box-shadow: 0 0 3px rgba(59,130,246,0.5); }
-    
+    .tab-name-input { outline: none; width: 60px; font-size: 13px; border: 1px solid #3b82f6; border-radius: 4px; padding: 2px 4px; display: none; }
+    .tab-item.renaming .tab-name-text { display: none; }
+    .tab-item.renaming .tab-name-input { display: inline-block; }
+    .tab-btn { font-size: 12px; cursor: pointer; color: #94a3b8; padding: 2px; }
+    .tab-btn:hover { color: #3b82f6; }
     .tab-item .close-tab { font-size: 14px; color: #94a3b8; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .tab-item .close-tab:hover { background: #fee2e2; color: #ef4444; }
     .add-tab-btn { padding: 8px 12px; background: transparent; border: none; font-size: 18px; color: #64748b; cursor: pointer; }
 
-    /* 主体布局 */
     .main-workspace { display: flex; flex: 1; overflow: hidden; }
     .left-panel { width: 380px; background: #fff; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; flex-shrink: 0; }
     .action-panel { padding: 15px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #f1f5f9; }
@@ -53,10 +62,9 @@
     .btn-danger { background: #fff; color: #ef4444; border: 1px solid #fca5a5; }
     .btn-sm { padding: 5px 10px; font-size: 11px; width: auto; }
 
-    /* 面板 Tabs */
     .panel-tabs { display: flex; border-bottom: 1px solid #e2e8f0; align-items: center; justify-content: space-between; }
     .panel-tabs-left { display: flex; }
-    .panel-tab { padding: 10px 14px; font-size: 13px; cursor: pointer; color: #64748b; border-bottom: 2px solid transparent; }
+    .panel-tab { padding: 10px 14px; font-size: 13px; cursor: pointer; color: #64748b; border-bottom: 2px solid transparent; white-space: nowrap; }
     .panel-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; background: #f8fafc; }
     .panel-content-area { flex: 1; overflow-y: auto; display: none; }
     .panel-content-area.active { display: block; }
@@ -65,7 +73,6 @@
     .log-item .time { color: #94a3b8; font-size: 10px; display: block; }
     .log-item .error-report { color: #dc2626; font-weight: bold; background: #fef2f2; padding: 6px; border-radius: 4px; margin-top: 4px; display: block; }
 
-    /* 云仓库 */
     .cloud-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 15px; }
     .cloud-item { aspect-ratio: 1; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 10px; cursor: pointer; position: relative; }
     .cloud-item.filled { background: #e0f2fe; border-color: #7dd3fc; color: #0369a1; }
@@ -73,14 +80,12 @@
     .cloud-item .del-cloud { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; background: #ef4444; color: #fff; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; }
     .cloud-item:hover .del-cloud { display: flex; }
 
-    /* 编辑器 */
     .right-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #fff; position: relative; }
     .right-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 15px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; z-index: 10; }
     .rt-btn { padding: 6px 12px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; color: #64748b; }
     .rt-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
     .rt-btn-magic { border-color: #c084fc; color: #7e22ce; background: #faf5ff; }
 
-    /* 搜索框 */
     .search-container { display: none; gap: 8px; align-items: flex-start; }
     .search-container.active { display: flex; }
     .search-input-wrapper { position: relative; display: flex; flex-direction: column; gap: 4px; }
@@ -93,12 +98,10 @@
     .editor-container.active, .preview-container.active { display: block; }
     .CodeMirror { height: 100% !important; font-size: 13px; line-height: 1.6; }
     
-    /* 底部状态栏 */
     .status-bar { height: 30px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; align-items: center; padding: 0 15px; font-size: 12px; cursor: pointer; transition: 0.2s; flex-shrink: 0; z-index: 10;}
     .status-bar.ok { color: #15803d; background: #f0fdf4; }
     .status-bar.error { color: #b91c1c; background: #fef2f2; font-weight: 600; text-decoration: underline; text-decoration-style: dashed; }
 
-    /* 报错抽屉 */
     .error-drawer {
         position: absolute; bottom: 30px; left: 0; right: 0; background: #fff; border-top: 1px solid #fca5a5;
         box-shadow: 0 -4px 15px rgba(0,0,0,0.1); max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
@@ -130,7 +133,11 @@
 <div class="top-bar">
     <div class="config-row">
         <input type="text" id="ghOwner" value="qiuhua-cac" placeholder="用户" style="width:100px;">
-        <input type="text" id="ghRepo" value="new" placeholder="仓库" style="width:90px;">
+        <div class="repo-selector-wrapper">
+            <input type="text" id="ghRepo" placeholder="仓库" style="padding-right: 24px;">
+            <button class="repo-dropdown-btn" onclick="toggleRepoHistory(event)">▼</button>
+            <div class="repo-history-list" id="repoHistoryList"></div>
+        </div>
         <input type="text" id="ghPath" value="index.html" placeholder="路径" style="width:100px;">
         <input type="password" id="ghToken" placeholder="GitHub Token" style="flex:1; min-width:150px;">
         <button class="btn btn-secondary" style="width:auto; padding:5px 15px;" onclick="saveToken()">保存配置</button>
@@ -201,16 +208,14 @@
             <iframe id="previewIframe" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style="width:100%; height:100%; border:none;"></iframe>
         </div>
 
-        <!-- 报错抽屉 -->
         <div class="error-drawer" id="errorDrawer">
             <div class="error-drawer-header">
-                <span>⚠️ 发现代码语法问题（点击可跳转）</span>
+                <span>⚠️ 语法检查详情（点击错误跳转）</span>
                 <span class="error-drawer-close" onclick="toggleErrorDrawer(false)">✕</span>
             </div>
             <div class="error-drawer-body" id="errorDrawerBody"></div>
         </div>
 
-        <!-- 状态栏 -->
         <div class="status-bar" id="statusBar" onclick="toggleErrorDrawer(true)">等待加载...</div>
     </div>
 </div>
@@ -229,51 +234,54 @@
     let searchMarks = []; 
     let currentMatchIndex = -1; 
     let currentQuery = '';
-    let liveCheckTimeout = null;
     
     // 错误状态
     let currentErrors = []; 
 
     document.addEventListener('DOMContentLoaded', () => {
+        // 初始化 Token 和 历史仓库
         document.getElementById('ghToken').value = localStorage.getItem('rescue_gh_token') || '';
+        const savedRepo = localStorage.getItem('rescue_gh_repo') || 'new';
+        document.getElementById('ghRepo').value = savedRepo;
         
+        // 渲染历史仓库下拉
+        renderRepoHistory();
+
         const savedWindows = localStorage.getItem('rescue_windows_data');
         const savedCloud = localStorage.getItem('rescue_cloud_backups');
         if (savedCloud) globalCloudBackups = JSON.parse(savedCloud);
+        
+        // 【强制刷新重置】：保留最后一次历史，清空当前代码和操作日志
         if (savedWindows) {
             try {
-                windowsData = JSON.parse(savedWindows);
-                if (windowsData.length === 0) throw new Error();
+                const oldWins = JSON.parse(savedWindows);
+                let newWins = oldWins.map(w => {
+                    const lastHistory = w.history && w.history.length > 0 ? [w.history[0]] : [];
+                    return { name: w.name, content: DEFAULT_TEXT, logs: [], history: lastHistory };
+                });
+                windowsData = newWins;
             } catch(e) { windowsData = [initWindowData()]; }
         } else {
             windowsData = [initWindowData()];
         }
+        savePersistedData();
 
         editor = CodeMirror.fromTextArea(document.getElementById('mainEditor'), {
             lineNumbers: true, mode: "htmlmixed", theme: "default", lineWrapping: true, readOnly: true
         });
 
-        let changeTimeout = null;
+        // 【关键修复】：监听每次输入，立刻刷新状态
         editor.on('change', (cm, change) => {
             if (isReadOnly) return; 
             
-            // 实时检测：延迟 300 毫秒，只要敲击就扫一次
-            clearTimeout(liveCheckTimeout);
-            liveCheckTimeout = setTimeout(() => {
-                updateLiveStatus();
-            }, 300);
+            // 抛弃防抖，立刻扫描
+            updateLiveStatus();
 
             const currentWin = windowsData[activeWindowIndex];
-            if (!currentWin) return;
-
-            clearTimeout(changeTimeout);
-            changeTimeout = setTimeout(() => {
-                const newContent = cm.getValue();
-                if (newContent !== currentWin.content) {
-                    currentWin.content = newContent;
-                    savePersistedData();
-                }
-            }, 800);
+            if (currentWin) {
+                currentWin.content = cm.getValue();
+                savePersistedData();
+            }
         });
 
         renderTabs();
@@ -281,48 +289,81 @@
         setupDropZone();
     });
 
-    // ==== 双击改名 ====
-    function makeTabNameEditable(el, index) {
-        if (el.contentEditable === "true") return; 
-        el.contentEditable = "true";
-        el.focus();
-        
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-
-        const finish = () => {
-            el.contentEditable = "false";
-            const newName = el.innerText.trim();
-            if (newName && newName !== windowsData[index].name) {
-                windowsData[index].name = newName;
-                savePersistedData();
-            } else {
-                el.innerText = windowsData[index].name;
-            }
-        };
-
-        el.onblur = finish;
-        el.onkeydown = (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                el.blur();
-            }
-        };
+    // ==== 仓库历史下拉 ====
+    function toggleRepoHistory(e) {
+        e.stopPropagation();
+        const list = document.getElementById('repoHistoryList');
+        list.classList.toggle('active');
     }
 
-    // ==== 状态机语法检测 (暴力拦截错误) ====
+    function renderRepoHistory() {
+        let history = JSON.parse(localStorage.getItem('rescue_repo_history') || '["new"]');
+        const list = document.getElementById('repoHistoryList');
+        list.innerHTML = history.map(repo => `<div class="repo-history-item" onclick="selectRepo('${repo}')">${repo}</div>`).join('');
+    }
+
+    function selectRepo(repo) {
+        document.getElementById('ghRepo').value = repo;
+        document.getElementById('repoHistoryList').classList.remove('active');
+        saveToken(); // 顺便保存
+    }
+
+    // 点击空白处关闭下拉
+    document.addEventListener('click', (e) => {
+        const list = document.getElementById('repoHistoryList');
+        const btn = document.querySelector('.repo-dropdown-btn');
+        if (list.classList.contains('active') && !btn.contains(e.target) && !list.contains(e.target)) {
+            list.classList.remove('active');
+        }
+    });
+
+    // ==== 纯血无依赖词法状态机（绝对不误报） ====
     function analyzeCode(code) {
         let errors = [];
         let stack = [];
         let lineNum = 1;
-        
+        let inString = false;
+        let stringChar = '';
+        let inComment = false;
+        let inRegex = false;
+
         for (let i = 0; i < code.length; i++) {
             let c = code[i];
-            if (c === '\n') { lineNum++; continue; }
+            let nextChar = code[i + 1] || '';
+            
+            if (c === '\n') { lineNum++; inComment = false; continue; }
 
+            // 处理字符串
+            if (!inString && (c === '"' || c === "'" || c === '`')) {
+                inString = true; stringChar = c; continue;
+            } else if (inString) {
+                if (c === '\\') { i++; continue; } 
+                if (c === stringChar) { inString = false; }
+                continue;
+            }
+
+            // 处理注释
+            if (!inString && c === '/' && nextChar === '/') {
+                inComment = true; i++; continue;
+            }
+            if (inComment) continue;
+
+            // 处理正则 (极简，防止误伤)
+            if (!inString && c === '/' && nextChar !== '/' && nextChar !== '*') {
+                const prevChar = code[i-1] || '';
+                if (prevChar === '=' || prevChar === '(' || prevChar === ',' || prevChar === '[') {
+                    let j = i + 1;
+                    let endRegex = false;
+                    while(j < code.length && code[j] !== '\n') {
+                        if (code[j] === '\\') { j++; }
+                        else if (code[j] === '/') { endRegex = true; break; }
+                        j++;
+                    }
+                    if (endRegex) { i = j; continue; }
+                }
+            }
+
+            // 真正的括号检测
             if (c === '(' || c === '{' || c === '[') {
                 stack.push({ char: c, line: lineNum });
             } else if (c === ')' || c === '}' || c === ']') {
@@ -347,24 +388,26 @@
     }
 
     function updateLiveStatus() {
+        const statusBar = document.getElementById('statusBar');
+        
         if (isReadOnly) {
-            document.getElementById('statusBar').textContent = '当前为只读模式';
-            document.getElementById('statusBar').className = 'status-bar';
+            statusBar.textContent = '当前为只读模式（解锁后才能修改）';
+            statusBar.className = 'status-bar';
             currentErrors = [];
             toggleErrorDrawer(false);
             return;
         }
+        
         const code = editor.getValue();
         if (!code || code.trim() === '') {
-            document.getElementById('statusBar').textContent = '等待输入...';
-            document.getElementById('statusBar').className = 'status-bar';
+            statusBar.textContent = '等待输入...';
+            statusBar.className = 'status-bar';
             currentErrors = [];
             toggleErrorDrawer(false);
             return;
         }
 
         currentErrors = analyzeCode(code);
-        const statusBar = document.getElementById('statusBar');
 
         if (currentErrors.length > 0) {
             statusBar.textContent = `❌ 发现 ${currentErrors.length} 处错误，点击此处展开详情修改`;
@@ -376,12 +419,11 @@
         }
     }
 
-    // ==== 抽屉逻辑 (必须有帘子) ====
+    // ==== 报错帘子 ====
     function toggleErrorDrawer(forceOpen = false) {
         const drawer = document.getElementById('errorDrawer');
         const body = document.getElementById('errorDrawerBody');
         
-        // 如果没错误，强行打开帘子显示绿字
         if (currentErrors.length === 0) {
             if (forceOpen) {
                 body.innerHTML = `<div class="error-item" style="background:#f0fdf4; color:#15803d; border-color:#bbf7d0;">
@@ -394,7 +436,6 @@
             return;
         }
 
-        // 有错误，正常渲染
         if (forceOpen || !drawer.classList.contains('open')) {
             body.innerHTML = currentErrors.map(err => `
                 <div class="error-item" onclick="jumpToError(${err.line})">
@@ -416,49 +457,59 @@
         toggleErrorDrawer(false);
     }
 
-    // ==== 纯原生暴力排版 ====
+    // ==== 双引擎自动排版 ====
     function formatCode() {
         if (isReadOnly) return showToast('请先解锁编辑模式', 'error');
         const raw = editor.getValue();
         if (!raw || raw.trim() === '') return;
 
-        // 1. 强行剥离标签、括号换行
-        let formatted = raw
-            .replace(/(<\/[a-zA-Z]+>)/g, '$1\n') 
-            .replace(/(<[a-zA-Z][^>]*>)/g, function(match) {
-                return match.endsWith('/>') ? match : match + '\n';
-            })
-            .replace(/\{\s*/g, ' {\n') 
-            .replace(/\s*\}/g, '\n}\n') 
-            .replace(/\n\s*\n/g, '\n'); 
+        let finalCode = raw;
+        try {
+            finalCode = prettier.format(raw, {
+                parser: "html",
+                plugins: [prettierPlugins.html],
+                tabWidth: 4,
+                printWidth: 120,
+                htmlWhitespaceSensitivity: "ignore" 
+            });
+            showToast('🪄 Prettier 排版完成', 'success');
+        } catch (e) {
+            // 兜底暴力排版
+            let step1 = raw
+                .replace(/(<\/[a-zA-Z]+>)/g, '$1\n') 
+                .replace(/(<[a-zA-Z][^>]*>)/g, function(match) {
+                    return match.endsWith('/>') ? match : match + '\n';
+                })
+                .replace(/\{\s*/g, ' {\n') 
+                .replace(/\s*\}/g, '\n}\n') 
+                .replace(/\n\s*\n/g, '\n'); 
 
-        // 2. 逐行计算缩进
-        let lines = formatted.split('\n');
-        let indentLevel = 0;
-        let finalLines = [];
+            let lines = step1.split('\n');
+            let indentLevel = 0;
+            let finalLines = [];
 
-        for (let i = 0; i < lines.length; i++) {
-            let line = lines[i].trim();
-            if (!line) continue;
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (!line) continue;
 
-            if (line.startsWith('</') || line.startsWith('}')) {
-                indentLevel = Math.max(0, indentLevel - 1);
+                if (line.startsWith('</') || line.startsWith('}')) {
+                    indentLevel = Math.max(0, indentLevel - 1);
+                }
+
+                finalLines.push('    '.repeat(indentLevel) + line);
+
+                if ((line.startsWith('<') && !line.startsWith('</') && !line.endsWith('/>') && !line.includes('</')) || line.endsWith('{')) {
+                    indentLevel++;
+                }
             }
-
-            finalLines.push('    '.repeat(indentLevel) + line);
-
-            if ((line.startsWith('<') && !line.startsWith('</') && !line.endsWith('/>') && !line.includes('</')) || line.endsWith('{')) {
-                indentLevel++;
-            }
+            finalCode = finalLines.join('\n');
+            showToast('🪄 备用引擎排版完成', 'success');
         }
-
-        const finalCode = finalLines.join('\n');
 
         if (finalCode !== raw) {
             const cursor = editor.getCursor();
             editor.setValue(finalCode);
             editor.setCursor(cursor);
-            showToast('🪄 排版完成', 'success');
             updateLiveStatus();
         } else {
             showToast('代码格式已经很规范了', 'info');
@@ -675,10 +726,28 @@
     function renderTabs() { 
         document.getElementById('tabsRow').innerHTML = windowsData.map((w, i) => `
             <div class="tab-item ${i === activeWindowIndex ? 'active' : ''}" onclick="switchWindow(${i})">
-                <span class="tab-name" ondblclick="makeTabNameEditable(this, ${i})">${w.name}</span>
+                <span class="tab-name-text">${w.name}</span>
+                <input class="tab-name-input" onblur="this.parentElement.classList.remove('renaming')" onkeydown="if(event.key==='Enter'){this.blur();}">
+                <span class="tab-btn" onclick="event.stopPropagation(); startRename(${i})" title="重命名">✏️</span>
                 ${windowsData.length > 1 ? `<span class="close-tab" onclick="closeWindow(event, ${i})">×</span>` : ''}
             </div>
         `).join('') + `<button class="add-tab-btn" onclick="createNewWindow()">➕</button>`; 
+    }
+
+    const originalRenderTabs = renderTabs;
+    renderTabs = function() {
+        originalRenderTabs();
+        const inputs = document.querySelectorAll('.tab-name-input');
+        inputs.forEach((input, i) => {
+            input.addEventListener('blur', () => {
+                const newName = input.value.trim();
+                if (newName && newName !== windowsData[i].name) {
+                    windowsData[i].name = newName;
+                    savePersistedData();
+                    renderTabs();
+                }
+            });
+        });
     }
 
     function createNewWindow() { windowsData.push(initWindowData()); savePersistedData(); switchWindow(windowsData.length - 1); }
@@ -698,10 +767,26 @@
     function renderCloudGrid() { const g = document.getElementById('cloudGrid'); let h = ''; for (let i = 0; i < 30; i++) { if (i < globalCloudBackups.length) { const b = globalCloudBackups[i]; const d = new Date(b.timestamp); h += `<div class="cloud-item filled" onclick="loadCloudBackup(${i})"><div class="del-cloud" onclick="deleteCloudBackup(event, ${i})">×</div><div class="c-time">${d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</div><div class="c-date">${d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}</div></div>`; } else { h += `<div class="cloud-item empty">空</div>`; } } g.innerHTML = h; }
     function loadCloudBackup(index) { if (!globalCloudBackups[index]) return; if (confirm('确定加载此云备份吗？')) { const c = globalCloudBackups[index].content; editor.setValue(c); windowsData[activeWindowIndex].content = c; isReadOnly = true; editor.setOption('readOnly', true); updateToggleBtnUI(); savePersistedData(); showToast('加载成功', 'success'); } }
     function deleteCloudBackup(e, index) { e.stopPropagation(); if (!globalCloudBackups[index]) return; if (confirm('⚠️ 确定彻底删除此备份吗？')) { if (confirm('再次确认：删除后无法恢复！')) { globalCloudBackups.splice(index, 1); savePersistedData(); renderCloudGrid(); showToast('已删除', 'success'); } } }
-    function saveToken() { localStorage.setItem('rescue_gh_token', document.getElementById('ghToken').value.trim()); showToast('已保存', 'success'); }
+    
+    function saveToken() { 
+        localStorage.setItem('rescue_gh_token', document.getElementById('ghToken').value.trim()); 
+        let repo = document.getElementById('ghRepo').value.trim();
+        localStorage.setItem('rescue_gh_repo', repo);
+        
+        // 记录仓库历史
+        let history = JSON.parse(localStorage.getItem('rescue_repo_history') || '[]');
+        if (!history.includes(repo) && repo) {
+            history.push(repo);
+            localStorage.setItem('rescue_repo_history', JSON.stringify(history));
+            renderRepoHistory();
+        }
+        showToast('已保存', 'success'); 
+    }
+
     function getGitConfig() { return { owner: document.getElementById('ghOwner').value.trim(), repo: document.getElementById('ghRepo').value.trim(), path: document.getElementById('ghPath').value.trim(), token: document.getElementById('ghToken').value.trim() }; }
     function utf8ToBase64(str) { const b = new TextEncoder().encode(str); let bin = ''; const c = 0x8000; for (let i = 0; i < b.length; i += c) bin += String.fromCharCode.apply(null, b.subarray(i, i + c)); return btoa(bin); }
     function base64ToUtf8(b64) { const bin = atob(b64.replace(/\n/g,'')); const b = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i); return new TextDecoder('utf-8').decode(b); }
+    
     async function pullFromGit() { 
         const c = getGitConfig(); 
         if (!c.owner || !c.repo || !c.path || !c.token) return showToast('配置不完整', 'error'); 
