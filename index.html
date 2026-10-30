@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Git 仓库控制台 (终极防丢版)</title>
+<title>Git 仓库控制台</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/xml/xml.min.js"></script>
@@ -27,7 +27,11 @@
     .repo-dropdown-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; padding: 4px 6px; color: #475569; z-index: 10; }
     .repo-history-list { position: absolute; top: 100%; left: 0; right: 0; width: 100%; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: none; max-height: 200px; overflow-y: auto; margin-top: 4px; }
     .repo-history-list.active { display: block; }
-    .repo-history-item { padding: 10px; font-size: 13px; cursor: pointer; color: #334155; border-bottom: 1px solid #f1f5f9; }
+    
+    .repo-history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; font-size: 13px; cursor: pointer; color: #334155; border-bottom: 1px solid #f1f5f9; }
+    .repo-history-item:hover { background: #f1f5f9; color: #3b82f6; }
+    .del-history-btn { color: #ef4444; font-weight: bold; padding: 0 5px; border-radius: 4px; }
+    .del-history-btn:hover { background: #fee2e2; }
 
     .tabs-row { display: flex; padding: 5px 10px 0; gap: 4px; overflow-x: auto; align-items: flex-end; scrollbar-width: none; }
     .tabs-row::-webkit-scrollbar { display: none; }
@@ -101,23 +105,13 @@
     .search-status { font-size: 12px; color: #3b82f6; font-weight: 600; padding: 0 8px; }
 
     /* === 编辑器与预览区 === */
-    .editor-container, .preview-container { 
-        flex: 1; 
-        display: none; 
-        position: relative; 
-        width: 100%;
-        height: 100%; 
-        min-height: 0;
-        overflow: hidden; 
-    }
+    .editor-container, .preview-container { flex: 1; display: none; position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
     .editor-container.active { display: block; }
     .preview-container.active { display: flex; flex-direction: column; }
     
     .CodeMirror { height: 100% !important; font-size: 14px; line-height: 1.6; }
-    /* 错误行高亮 */
     .cm-error-line { background: #fee2e2 !important; border-bottom: 2px solid #ef4444; }
     
-    /* 预览区警告条 */
     .preview-alert { padding: 10px; background: #fef2f2; color: #b91c1c; font-size: 13px; font-weight: bold; border-bottom: 1px solid #fca5a5; display: none; align-items: center; justify-content: center; text-align:center;}
     .preview-alert.active { display: flex; animation: flash 0.5s; }
     @keyframes flash { 0% { background: #fca5a5; } 100% { background: #fef2f2; } }
@@ -128,13 +122,10 @@
 
     .error-drawer { position: absolute; bottom: 32px; left: 0; right: 0; background: #fff; border-top: 1px solid #fca5a5; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); max-height: 0; overflow: hidden; transition: max-height 0.3s ease; z-index: 20; display: flex; flex-direction: column; }
     .error-drawer.open { max-height: 250px; }
-    
     .error-drawer-header { padding: 10px; background: #fef2f2; color: #991b1b; font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #fecaca; }
     .header-left { display: flex; align-items: center; gap: 10px; }
-    /* 锁定按钮样式 */
     .lock-btn { background: transparent; border: 1px solid #fca5a5; padding: 2px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; color: #b91c1c; transition: 0.2s; }
     .lock-btn.active { background: #ef4444; color: #fff; border-color: #ef4444; }
-    
     .error-drawer-close { cursor: pointer; color: #991b1b; font-size: 18px; padding: 0 5px; }
     .error-drawer-body { padding: 10px; overflow-y: auto; flex: 1; }
     .error-item { padding: 8px 10px; margin-bottom: 6px; border-radius: 4px; background: #fef2f2; color: #b91c1c; font-size: 13px; cursor: pointer; display: flex; gap: 10px; border: 1px solid transparent; }
@@ -150,11 +141,12 @@
     /* === 手机端全屏原生输入框 === */
     .mobile-editor-modal { display: none; position: fixed; inset: 0; background: #fff; z-index: 99999; flex-direction: column; }
     .mobile-editor-modal.active { display: flex; }
-    .modal-header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+    .modal-header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;}
     .modal-title { font-size: 15px; font-weight: 600; color: #1e293b; }
     .modal-header button { padding: 6px 12px; font-size: 14px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; }
     .btn-cancel { background: #e2e8f0; color: #475569; }
     .btn-confirm { background: #3b82f6; color: #fff; }
+
     .mobile-editor-modal textarea { flex: 1; width: 100%; border: none; padding: 15px; font-size: 14px; line-height: 1.6; resize: none; outline: none; font-family: monospace; -webkit-user-select: text !important; user-select: text !important; }
 
     /* ================= 移动端专属修复 ================= */
@@ -173,14 +165,18 @@
         .rt-btn { padding: 6px 8px; font-size: 12px; }
         
         .CodeMirror-scroll { -webkit-overflow-scrolling: touch !important; overflow: scroll !important; }
-        .CodeMirror-vscrollbar {
-            width: 14px !important; display: block !important; z-index: 100 !important; background: rgba(0,0,0,0.05);
-        }
+        .CodeMirror-vscrollbar { width: 14px !important; display: block !important; z-index: 100 !important; background: rgba(0,0,0,0.05); }
         .CodeMirror-vscrollbar::-webkit-scrollbar { width: 12px; }
         .CodeMirror-vscrollbar::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 6px; border: 2px solid #f1f5f9; }
         .CodeMirror-vscrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         
         .error-drawer { z-index: 30 !important; }
+
+        /* 移动端弹窗内的搜索框样式 */
+        .modal-search-wrap { padding: 0; border-bottom: 1px solid #e2e8f0; display: none; background: #f1f5f9; }
+        .modal-search-wrap.active { display: block; }
+        .modal-search-wrap .search-container { padding: 10px 15px; margin: 0; display: flex; }
+        .modal-search-wrap .search-input-wrapper textarea.search-input { height: 40px; }
     }
 </style>
 </head>
@@ -191,13 +187,29 @@
 
 <iframe id="sandboxIframe" style="display:none;"></iframe>
 
-<!-- 【终极改造】原生编辑弹窗（带行号同步） -->
+<!-- 移动端原生编辑弹窗 -->
 <div class="mobile-editor-modal" id="mobileEditorModal">
     <div class="modal-header">
         <button class="btn-cancel" id="cancelMobileEdit">取消</button>
         <span class="modal-title">原生文字编辑</span>
         <button class="btn-confirm" id="confirmMobileEdit">确定同步</button>
     </div>
+    
+    <!-- ★ 关键改造：将搜索容器包裹在此，在移动端时直接物理搬入到这里 -->
+    <div class="modal-search-wrap" id="modalSearchWrap">
+        <div class="search-container" id="searchContainer">
+            <div class="search-input-wrapper">
+                <textarea id="searchInput" class="search-input" placeholder="粘贴代码... (回车下一个)"></textarea>
+                <div class="search-controls">
+                    <span class="search-status" id="searchStatus">0 / 0</span>
+                    <button id="searchPrevBtn">⬆</button>
+                    <button id="searchNextBtn">⬇</button>
+                    <button id="searchClearBtn" style="color:#ef4444; border-color:#fca5a5;">❌</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <textarea id="mobileTextarea" spellcheck="false"></textarea>
 </div>
 
@@ -261,17 +273,8 @@
                 <button class="rt-btn" id="searchToggleBtn">🔍 搜索</button>
             </div>
 
-            <div class="search-container" id="searchContainer">
-                <div class="search-input-wrapper">
-                    <textarea id="searchInput" class="search-input" placeholder="粘贴代码... (回车下一个)"></textarea>
-                    <div class="search-controls">
-                        <span class="search-status" id="searchStatus">0 / 0</span>
-                        <button id="searchPrevBtn">⬆</button>
-                        <button id="searchNextBtn">⬇</button>
-                        <button id="searchClearBtn" style="color:#ef4444; border-color:#fca5a5;">❌</button>
-                    </div>
-                </div>
-            </div>
+            <!-- ★ 电脑端的搜索容器（手机端隐藏） -->
+            <div class="search-container" id="desktopSearchContainer"></div>
         </div>
         
         <div class="editor-container active" id="editorArea">
@@ -289,7 +292,6 @@
             <div class="error-drawer-header">
                 <div class="header-left">
                     <span>⚠️ 语法检查详情</span>
-                    <!-- 增加锁定开关 -->
                     <button class="lock-btn" id="lockDrawerBtn">📌 锁定</button>
                 </div>
                 <span class="error-drawer-close" id="closeDrawerBtn">✕</span>
@@ -316,10 +318,8 @@
     let currentErrors = [];
     
     let previewTimer = null; 
-    let isDrawerLocked = false; // 是否锁定错误抽屉
-    let errorHighlight = null; // 记录错误行高亮的对象
-    
-    // 记录要跳转的错误行
+    let isDrawerLocked = false; 
+    let errorHighlight = null; 
     let pendingTargetLine = -1; 
 
     const sandbox = document.getElementById('sandboxIframe');
@@ -335,16 +335,9 @@
         windowsData = [initWindowData()];
         
         editor = CodeMirror.fromTextArea(document.getElementById('mainEditor'), {
-            lineNumbers: true, 
-            mode: "htmlmixed", 
-            theme: "default", 
-            lineWrapping: true, 
-            readOnly: true,
-            scrollbarStyle:"native",
-            dragDrop:false
+            lineNumbers: true, mode: "htmlmixed", theme: "default", lineWrapping: true, readOnly: true, scrollbarStyle:"native", dragDrop:false
         });
 
-        // 手机端拦截原生输入
         editor.getWrapperElement().addEventListener('touchstart', (e) => {
             if (isReadOnly) return;
             if (window.innerWidth <= 768) {
@@ -355,8 +348,6 @@
 
         document.getElementById('cancelMobileEdit').addEventListener('click', closeMobileEditor);
         document.getElementById('confirmMobileEdit').addEventListener('click', saveMobileEditor);
-
-        // 抽屉锁定开关
         document.getElementById('lockDrawerBtn').addEventListener('click', toggleDrawerLock);
 
         bindEvents();
@@ -365,31 +356,33 @@
         setupDropZone();
     });
 
-    // === 移动端原生编辑功能（修复找不到错误位置的问题） ===
+    // === 智能挂载搜索框：保证手机端弹窗里能看得见 ===
     function openMobileEditor() {
         const modal = document.getElementById('mobileEditorModal');
         const textarea = document.getElementById('mobileTextarea');
         textarea.value = editor.getValue();
         
-        // 如果之前点了错误跳转，这里会自动选中那行文字并滚动过去
+        // 弹窗打开时，如果搜索面板展开，展示出来
+        const sc = document.getElementById('searchContainer');
+        const wrap = document.getElementById('modalSearchWrap');
+        if (sc.classList.contains('active')) {
+            wrap.classList.add('active');
+        } else {
+            wrap.classList.remove('active');
+        }
+
         if (pendingTargetLine > 0) {
-            // 计算那行文字的位置
             const lines = textarea.value.split('\n');
             let charIndex = 0;
-            for(let i=0; i < pendingTargetLine - 1; i++) {
-                charIndex += lines[i].length + 1; // +1 是换行符
-            }
+            for(let i=0; i < pendingTargetLine - 1; i++) { charIndex += lines[i].length + 1; }
             const lineText = lines[pendingTargetLine - 1] || '';
-            
-            // 使用 setTimeout 确保弹窗渲染后再选中
             setTimeout(() => {
                 textarea.focus();
                 textarea.setSelectionRange(charIndex, charIndex + lineText.length);
-                // 粗略计算滚动高度让选中的文字处于屏幕中间
                 const lineHeight = 22; 
                 textarea.scrollTop = (pendingTargetLine - 1) * lineHeight - 100;
             }, 100);
-            pendingTargetLine = -1; // 重置
+            pendingTargetLine = -1; 
         } else {
             setTimeout(() => textarea.focus(), 100);
         }
@@ -399,6 +392,7 @@
 
     function closeMobileEditor() {
         document.getElementById('mobileEditorModal').classList.remove('active');
+        document.getElementById('modalSearchWrap').classList.remove('active');
     }
 
     function saveMobileEditor() {
@@ -412,28 +406,150 @@
             currentWin.content = val; 
             savePersistedData();
         }
+        clearSearchHighlights();
         runValidation();
     }
 
-    // === 抽屉锁定与错误行高亮 ===
+    function bindEvents() {
+        const leftPanel = document.getElementById('leftPanel');
+        const mobileOverlay = document.getElementById('mobileOverlay');
+        
+        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+            leftPanel.classList.add('open'); mobileOverlay.classList.add('open');
+        });
+        mobileOverlay.addEventListener('click', () => {
+            leftPanel.classList.remove('open'); mobileOverlay.classList.remove('open');
+        });
+        const dropdownBtn = document.getElementById('repoDropdownBtn');
+        const repoList = document.getElementById('repoHistoryList');
+        dropdownBtn.addEventListener('click', (e) => { e.stopPropagation(); repoList.classList.toggle('active'); });
+        document.addEventListener('click', (e) => { if (!repoList.contains(e.target) && e.target !== dropdownBtn) repoList.classList.remove('active'); });
+        document.getElementById('saveConfigBtn').addEventListener('click', saveToken);
+        document.getElementById('pullBtn').addEventListener('click', pullFromGit);
+        document.getElementById('pushBtn').addEventListener('click', pushToGit);
+              document.getElementById('manualBackupBtn').addEventListener('click', manualBackupCloud);
+        document.getElementById('panelActionBtn').addEventListener('click', handlePanelAction);
+        document.getElementById('tabEditBtn').addEventListener('click', () => switchRightTab('edit'));
+        document.getElementById('tabPreviewBtn').addEventListener('click', () => switchRightTab('preview'));
+        document.getElementById('formatBtn').addEventListener('click', formatCode);
+        document.getElementById('editToggleBtn').addEventListener('click', toggleEditMode);
+        document.getElementById('statusBar').addEventListener('click', () => toggleErrorDrawer(true));
+        document.getElementById('closeDrawerBtn').addEventListener('click', () => toggleErrorDrawer(false));
+        
+        // 搜索按钮逻辑（完美支持弹窗展开）
+        document.getElementById('searchToggleBtn').addEventListener('click', () => {
+            const sc = document.getElementById('searchContainer');
+            const wrap = document.getElementById('modalSearchWrap');
+            sc.classList.toggle('active');
+            if (sc.classList.contains('active')) {
+                wrap.classList.add('active');
+            } else {
+                wrap.classList.remove('active');
+            }
+        });
+
+        document.querySelectorAll('.panel-tab').forEach(tab => {
+            tab.addEventListener('click', () => switchPanelTab(tab.dataset.tab));
+        });
+        
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('keydown', (e) => { 
+            if (e.key === 'Enter') { e.preventDefault(); doSearch(e.shiftKey ? 'prev' : 'next'); } 
+        });
+        document.getElementById('searchPrevBtn').addEventListener('click', () => doSearch('prev'));
+        document.getElementById('searchNextBtn').addEventListener('click', () => doSearch('next'));
+        document.getElementById('searchClearBtn').addEventListener('click', clearSearch);
+        
+        editor.on('change', () => {
+            if (isReadOnly) return; 
+            const currentWin = windowsData[activeWindowIndex];
+            if (currentWin) { 
+                currentWin.content = editor.getValue(); 
+                savePersistedData();
+            }
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(runValidation, 100); 
+        });
+    }
+
+    // ★ 原封不动的搜索逻辑：完美兼容电脑端 CodeMirror 和移动端 textarea
+    function doSearch(direction) {
+        const query = document.getElementById('searchInput').value;
+        if (!query) { clearSearch(); return; }
+        
+        const isMobileModal = document.getElementById('mobileEditorModal').classList.contains('active');
+        const mobileTextarea = document.getElementById('mobileTextarea');
+
+        if (query !== currentQuery) {
+            clearSearchHighlights(); 
+            currentQuery = query;
+            
+            if (!isMobileModal) {
+                const docText = editor.getValue(); let startIndex = 0;
+                while ((startIndex = docText.indexOf(query, startIndex)) !== -1) {
+                    searchMarks.push({ from: editor.posFromIndex(startIndex), to: editor.posFromIndex(startIndex + query.length) });
+                    startIndex += query.length;
+                }
+            } else {
+                let docText = mobileTextarea.value;
+                let startIndex = 0;
+                while ((startIndex = docText.indexOf(query, startIndex)) !== -1) {
+                    searchMarks.push({ index: startIndex }); 
+                    startIndex += query.length;
+                }
+            }
+
+            if (searchMarks.length === 0) { 
+                document.getElementById('searchStatus').textContent = '0 / 0'; 
+                showToast('未找到匹配内容', 'error'); 
+                return; 
+            }
+            currentMatchIndex = -1;
+        }
+        
+        currentMatchIndex = direction === 'next' ? (currentMatchIndex + 1) % searchMarks.length : (currentMatchIndex - 1 + searchMarks.length) % searchMarks.length;
+        
+        if (!isMobileModal) {
+            currentMarks.forEach(m => m.clear()); currentMarks = [];
+            const currentCoord = searchMarks[currentMatchIndex];
+            currentMarks.push(editor.markText(currentCoord.from, currentCoord.to, { className: 'cm-search-current' }));
+            editor.scrollIntoView({ line: currentCoord.from.line, ch: currentCoord.from.ch }, 200);
+            editor.setSelection(currentCoord.from, currentCoord.to);
+        } else {
+            let start = searchMarks[currentMatchIndex].index;
+            mobileTextarea.focus();
+            mobileTextarea.setSelectionRange(start, start + query.length);
+            
+            const linesBefore = mobileTextarea.value.substring(0, start).split('\n').length - 1;
+            const lineHeight = 22; 
+            mobileTextarea.scrollTop = linesBefore * lineHeight - 100;
+        }
+        
+        document.getElementById('searchStatus').textContent = `${currentMatchIndex + 1} / ${searchMarks.length}`;
+    }
+
+    function clearSearchHighlights() {
+        currentMarks.forEach(m => m.clear()); currentMarks = []; searchMarks = []; currentMatchIndex = -1; currentQuery = '';
+        document.getElementById('searchStatus').textContent = '0 / 0';
+    }
+
+    function clearSearch() { 
+        document.getElementById('searchInput').value = ''; 
+        clearSearchHighlights(); 
+    }
+
     function toggleDrawerLock() {
         isDrawerLocked = !isDrawerLocked;
         const btn = document.getElementById('lockDrawerBtn');
         if (isDrawerLocked) {
-            btn.textContent = '🔒 已锁定';
-            btn.classList.add('active');
-            showToast('错误详情已锁定，跳转不会关闭', 'success');
+            btn.textContent = '🔒 已锁定'; btn.classList.add('active'); showToast('错误详情已锁定', 'success');
         } else {
-            btn.textContent = '📌 锁定';
-            btn.classList.remove('active');
+            btn.textContent = '📌 锁定'; btn.classList.remove('active');
         }
     }
 
     function clearErrorHighlight() {
-        if (errorHighlight) {
-            errorHighlight.clear();
-            errorHighlight = null;
-        }
+        if (errorHighlight) { errorHighlight.clear(); errorHighlight = null; }
     }
 
     function forceSaveBeforeUnload() {
@@ -453,58 +569,6 @@
         if (document.visibilityState === 'hidden') forceSaveBeforeUnload();
     });
 
-    function bindEvents() {
-        const leftPanel = document.getElementById('leftPanel');
-        const mobileOverlay = document.getElementById('mobileOverlay');
-        
-        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
-            leftPanel.classList.add('open');
-            mobileOverlay.classList.add('open');
-        });
-        mobileOverlay.addEventListener('click', () => {
-            leftPanel.classList.remove('open');
-            mobileOverlay.classList.remove('open');
-        });
-        const dropdownBtn = document.getElementById('repoDropdownBtn');
-        const repoList = document.getElementById('repoHistoryList');
-        dropdownBtn.addEventListener('click', (e) => { e.stopPropagation(); repoList.classList.toggle('active'); });
-        document.addEventListener('click', (e) => { if (!repoList.contains(e.target) && e.target !== dropdownBtn) repoList.classList.remove('active'); });
-        document.getElementById('saveConfigBtn').addEventListener('click', saveToken);
-        document.getElementById('pullBtn').addEventListener('click', pullFromGit);
-        document.getElementById('pushBtn').addEventListener('click', pushToGit);
-        document.getElementById('manualBackupBtn').addEventListener('click', manualBackupCloud);
-        document.getElementById('panelActionBtn').addEventListener('click', handlePanelAction);
-        document.getElementById('tabEditBtn').addEventListener('click', () => switchRightTab('edit'));
-        document.getElementById('tabPreviewBtn').addEventListener('click', () => switchRightTab('preview'));
-        document.getElementById('formatBtn').addEventListener('click', formatCode);
-        document.getElementById('editToggleBtn').addEventListener('click', toggleEditMode);
-        document.getElementById('statusBar').addEventListener('click', () => toggleErrorDrawer(true));
-        document.getElementById('closeDrawerBtn').addEventListener('click', () => toggleErrorDrawer(false));
-        document.getElementById('searchToggleBtn').addEventListener('click', () => {
-            document.getElementById('searchContainer').classList.toggle('active');
-        });
-        document.querySelectorAll('.panel-tab').forEach(tab => {
-            tab.addEventListener('click', () => switchPanelTab(tab.dataset.tab));
-        });
-        const searchInput = document.getElementById('searchInput');
-        searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSearch(e.shiftKey ? 'prev' : 'next'); } });
-        document.getElementById('searchPrevBtn').addEventListener('click', () => doSearch('prev'));
-        document.getElementById('searchNextBtn').addEventListener('click', () => doSearch('next'));
-        document.getElementById('searchClearBtn').addEventListener('click', clearSearch);
-        
-        editor.on('change', () => {
-            if (isReadOnly) return; 
-            const currentWin = windowsData[activeWindowIndex];
-            if (currentWin) { 
-                currentWin.content = editor.getValue(); 
-                savePersistedData();
-            }
-
-            clearTimeout(previewTimer);
-            previewTimer = setTimeout(runValidation, 100); 
-        });
-    }
-
     function savePersistedData() {
         localStorage.setItem('rescue_windows_data', JSON.stringify(windowsData));
         localStorage.setItem('rescue_cloud_backups', JSON.stringify(globalCloudBackups));
@@ -519,14 +583,12 @@
         };
     }
 
-    // 第一层防御：静态 HTML 检查
     function checkHTMLStructure(code) {
         let errors = [];
         try {
             let tempCode = code.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
                                .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
                                .replace(/<!--[\s\S]*?-->/g, '');
-            
             let tagStack = [];
             let tagRegex = /<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g;
             let match;
@@ -537,39 +599,25 @@
                 let line = code.substring(0, match.index).split('\n').length;
                 
                 if (fullTag.startsWith('</')) {
-                    if (tagStack.length === 0) {
-                        errors.push({ line, msg: `多余的闭合标签 </${tagName}>` });
-                    } else {
+                    if (tagStack.length === 0) { errors.push({ line, msg: `多余的闭合标签 </${tagName}>` }); } 
+                    else {
                         let last = tagStack.pop();
-                        if (last.tagName !== tagName) {
-                            errors.push({ line, msg: `标签不匹配：期望 </${last.tagName}>，遇到 </${tagName}>` });
-                        }
+                        if (last.tagName !== tagName) { errors.push({ line, msg: `标签不匹配：期望 </${last.tagName}>，遇到 </${tagName}>` }); }
                     }
-                } else {
-                    tagStack.push({ tagName, line });
-                }
+                } else { tagStack.push({ tagName, line }); }
             }
-            if (tagStack.length > 0) { 
-                let last = tagStack.pop(); 
-                errors.push({ line: last.line, msg: `缺少闭合标签 </${last.tagName}>` }); 
-            }
-        } catch(e) {
-            errors.push({ line: 1, msg: 'HTML结构检查异常: ' + e.message });
-        }
+            if (tagStack.length > 0) { let last = tagStack.pop(); errors.push({ line: last.line, msg: `缺少闭合标签 </${last.tagName}>` }); }
+        } catch(e) { errors.push({ line: 1, msg: 'HTML结构检查异常: ' + e.message }); }
         return errors;
     }
 
-    // 第二层防御：沙盒真机运行
     function runValidation() {
         const code = editor.getValue();
         const alertBar = document.getElementById('previewAlert');
         const iframe = document.getElementById('previewIframe');
         
         if(!code.trim()) {
-            iframe.srcdoc = '';
-            alertBar.classList.remove('active');
-            updateStatusUI(true);
-            return;
+            iframe.srcdoc = ''; alertBar.classList.remove('active'); updateStatusUI(true); return;
         }
 
         const htmlErrors = checkHTMLStructure(code);
@@ -577,148 +625,82 @@
             let err = htmlErrors[0];
             alertBar.textContent = `🚨 阻断：第 ${err.line} 行 ${err.msg}`;
             alertBar.classList.add('active');
-            iframe.srcdoc = `<html><body style="display:flex;align-items:center;justify-content:center;height:100%;background:#fef2f2;color:#b91c1c;font-family:sans-serif;font-size:14px;text-align:center;padding:20px;">
-                🚨 <b>HTML标签残缺被阻断</b><br><br>${err.msg}<br><br>请修复代码。
-            </body></html>`;
+            iframe.srcdoc = `<html><body style="display:flex;align-items:center;justify-content:center;height:100%;background:#fef2f2;color:#b91c1c;font-family:sans-serif;font-size:14px;text-align:center;padding:20px;">🚨 <b>HTML标签残缺被阻断</b><br><br>${err.msg}<br><br>请修复代码。</body></html>`;
             updateStatusUI(false, `HTML残缺: 第 ${err.line} 行 ${err.msg}`, err.line);
             return;
         }
 
-        let hasError = false;
-        let errorMsg = '';
-        let errorLine = '-';
+        let hasError = false; let errorMsg = ''; let errorLine = '-';
 
         sandbox.onload = function() {
             try {
-                sandbox.contentWindow.onerror = function(msg, url, line) {
-                    hasError = true;
-                    errorMsg = `运行错误: ${msg} (行 ${line})`;
-                    errorLine = line;
-                };
-                
-                sandbox.contentWindow.document.open();
-                sandbox.contentWindow.document.write(code);
-                sandbox.contentWindow.document.close();
-                
-            } catch(e) {
-                hasError = true;
-                errorMsg = '严重渲染异常: ' + e.message;
-            }
+                sandbox.contentWindow.onerror = function(msg, url, line) { hasError = true; errorMsg = `运行错误: ${msg} (行 ${line})`; errorLine = line; };
+                sandbox.contentWindow.document.open(); sandbox.contentWindow.document.write(code); sandbox.contentWindow.document.close();
+            } catch(e) { hasError = true; errorMsg = '严重渲染异常: ' + e.message; }
 
             setTimeout(() => {
                 if (hasError) {
-                    alertBar.textContent = `🚨 阻断：${errorMsg}`;
-                    alertBar.classList.add('active');
-                    iframe.srcdoc = `<html><body style="display:flex;align-items:center;justify-content:center;height:100%;background:#fef2f2;color:#b91c1c;font-family:sans-serif;font-size:14px;text-align:center;padding:20px;">
-                        🚨 <b>代码运行报错被拦截</b><br><br>${errorMsg}<br><br>请修复错误。
-                    </body></html>`;
+                    alertBar.textContent = `🚨 阻断：${errorMsg}`; alertBar.classList.add('active');
+                    iframe.srcdoc = `<html><body style="display:flex;align-items:center;justify-content:center;height:100%;background:#fef2f2;color:#b91c1c;font-family:sans-serif;font-size:14px;text-align:center;padding:20px;">🚨 <b>代码运行报错被拦截</b><br><br>${errorMsg}<br><br>请修复错误。</body></html>`;
                     updateStatusUI(false, errorMsg, errorLine); 
                 } else {
-                    alertBar.classList.remove('active');
-                    iframe.srcDoc = code;
-                    updateStatusUI(true);
+                    alertBar.classList.remove('active'); iframe.srcdoc = code; updateStatusUI(true);
                 }
             }, 50); 
         };
-
         sandbox.srcdoc = code;
     }
 
-    // 更新状态栏与抽屉，加入点击跳转
     function updateStatusUI(isOk, errMsg = '', errLine = '-') {
         const statusBar = document.getElementById('statusBar');
         const drawerBody = document.getElementById('errorDrawerBody');
         
         if (isOk) {
-            statusBar.textContent = '✅ 静态结构与真实执行双核检测通过';
-            statusBar.className = 'status-bar ok';
-            currentErrors = [];
-            drawerBody.innerHTML = ''; // 清理残留
-            clearErrorHighlight(); // 清理行高亮
-            toggleErrorDrawer(false); 
+            statusBar.textContent = '✅ 静态结构与真实执行双核检测通过'; statusBar.className = 'status-bar ok';
+            currentErrors = []; drawerBody.innerHTML = ''; clearErrorHighlight(); toggleErrorDrawer(false); 
         } else {
-            statusBar.textContent = `❌ 检测不通过！点击此处查看详情修改`;
-            statusBar.className = 'status-bar error';
-            
+            statusBar.textContent = `❌ 检测不通过！点击此处查看详情修改`; statusBar.className = 'status-bar error';
             if (currentErrors.length === 0 || currentErrors[0].msg !== errMsg) {
-                currentErrors = [{ line: errLine, msg: errMsg }];
-                drawerBody.innerHTML = '';
+                currentErrors = [{ line: errLine, msg: errMsg }]; drawerBody.innerHTML = '';
                 
-                const div = document.createElement('div'); 
-                div.className = 'error-item';
-                // 如果 errLine 是具体数字，绑定点击跳转
-                if (typeof errLine === 'number') {
-                    div.onclick = () => jumpToError(errLine);
-                }
-
-                const s1 = document.createElement('span'); 
-                s1.className = 'error-line'; 
-                s1.textContent = errLine === '-' ? '异常' : `第 ${errLine} 行`;
-                
-                const s2 = document.createElement('span'); 
-                s2.textContent = errMsg;
-                
-                div.appendChild(s1); div.appendChild(s2); 
-                drawerBody.appendChild(div);
+                const div = document.createElement('div'); div.className = 'error-item';
+                if (typeof errLine === 'number') { div.onclick = () => jumpToError(errLine); }
+                const s1 = document.createElement('span'); s1.className = 'error-line'; s1.textContent = errLine === '-' ? '异常' : `第 ${errLine} 行`;
+                const s2 = document.createElement('span'); s2.textContent = errMsg;
+                div.appendChild(s1); div.appendChild(s2); drawerBody.appendChild(div);
             }
         }
     }
 
-    // 核心修复：报错跳转
     function jumpToError(targetLine) {
         if (typeof targetLine === 'number' && !isNaN(targetLine)) {
-            // 记录目标行，如果在手机上打开原生编辑器会自动选中
             pendingTargetLine = targetLine;
-            
-            // PC端正常跳转并高亮
-            editor.scrollIntoView({ line: targetLine - 1, ch: 0 }, 200);
-            editor.setCursor({ line: targetLine - 1, ch: 0 });
-            
-            // 清除旧的高亮，添加新的高亮
+            editor.scrollIntoView({ line: targetLine - 1, ch: 0 }, 200); editor.setCursor({ line: targetLine - 1, ch: 0 });
             clearErrorHighlight();
-            errorHighlight = editor.markText(
-                { line: targetLine - 1, ch: 0 },
-                { line: targetLine - 1, ch: 1000 }, // 尽量高亮整行
-                { className: 'cm-error-line' }
-            );
-            
-            editor.focus();
-            showToast(`已跳转至第 ${targetLine} 行`, 'success');
+            errorHighlight = editor.markText({ line: targetLine - 1, ch: 0 }, { line: targetLine - 1, ch: 1000 }, { className: 'cm-error-line' });
+            editor.focus(); showToast(`已跳转至第 ${targetLine} 行`, 'success');
         }
-        
-        // 如果没锁定，就关闭抽屉；如果锁了，就不关
-        if (!isDrawerLocked) {
-            toggleErrorDrawer(false);
-        }
+        if (!isDrawerLocked) toggleErrorDrawer(false);
     }
 
     function toggleErrorDrawer(forceOpen = false) {
         const drawer = document.getElementById('errorDrawer');
-        if (forceOpen || !drawer.classList.contains('open')) {
-            drawer.classList.add('open');
-        } else {
-            drawer.classList.remove('open');
-        }
+        if (forceOpen || !drawer.classList.contains('open')) { drawer.classList.add('open'); } 
+        else { drawer.classList.remove('open'); }
     }
 
     function switchRightTab(t) { 
         if (t === 'edit') { 
-            document.getElementById('editorArea').classList.add('active'); 
-            document.getElementById('previewArea').classList.remove('active'); 
-            document.getElementById('statusBar').style.display = 'flex';
+            document.getElementById('editorArea').classList.add('active'); document.getElementById('previewArea').classList.remove('active'); document.getElementById('statusBar').style.display = 'flex';
         } else { 
-            document.getElementById('editorArea').classList.remove('active'); 
-            document.getElementById('previewArea').classList.add('active');
-            document.getElementById('statusBar').style.display = 'flex';
-            toggleErrorDrawer(false);
-            runValidation();
+            document.getElementById('editorArea').classList.remove('active'); document.getElementById('previewArea').classList.add('active'); document.getElementById('statusBar').style.display = 'flex';
+            toggleErrorDrawer(false); runValidation();
         } 
     }
 
     function toggleEditMode() { 
         isReadOnly = !isReadOnly; editor.setOption('readOnly', isReadOnly); updateToggleBtnUI();
-        if (isReadOnly) updateStatusUI(true);
-        else runValidation();
+        if (isReadOnly) updateStatusUI(true); else runValidation();
     }
 
     function updateToggleBtnUI() { 
@@ -727,46 +709,34 @@
         else { b.textContent = '🔒 切换为只读'; b.style.color = '#64748b'; b.style.borderColor = '#cbd5e1'; } 
     }
 
-    // === 其他保留功能 ===
     async function formatCode() {
         if (isReadOnly) return showToast('请先解锁编辑模式', 'error');
-        const raw = editor.getValue();
-        if (!raw || raw.trim() === '') return;
+        const raw = editor.getValue(); if (!raw || raw.trim() === '') return;
         let finalCode = raw;
         try {
             if (typeof prettier === 'undefined') throw new Error("Prettier未加载");
             finalCode = await prettier.format(raw, { parser: "html", plugins: [prettierPlugins.html], tabWidth: 4, printWidth: 120, htmlWhitespaceSensitivity: "ignore" });
             showToast('🪄 排版完成', 'success');
-        } catch (e) {
-            showToast('排版失败，代码可能有语法错误', 'error');
-            return;
-        }
-        if (finalCode !== raw) {
-            const cursor = editor.getCursor(); editor.setValue(finalCode); editor.setCursor(cursor);
-            savePersistedData();
-        } else showToast('代码格式已经很规范了', 'info');
+        } catch (e) { showToast('排版失败，代码可能有语法错误', 'error'); return; }
+        if (finalCode !== raw) { const cursor = editor.getCursor(); editor.setValue(finalCode); editor.setCursor(cursor); savePersistedData(); } 
+        else showToast('代码格式已经很规范了', 'info');
     }
 
     async function pushToGit() {
         try {
             const cfg = getGitConfig();
             if (!cfg.owner || !cfg.repo || !cfg.path || !cfg.token) return showToast('请填写完整配置', 'error');
-            const code = editor.getValue();
-            if (!code || code.length < 10) return showToast('内容为空，无法提交', 'error');
-            
-            if (currentErrors.length > 0) {
-                showToast('检测有报错，无法提交', 'error');
-                return;
-            }
-
+            const code = editor.getValue(); if (!code || code.length < 10) return showToast('内容为空，无法提交', 'error');
+            if (currentErrors.length > 0) return showToast('检测有报错，无法提交', 'error');
             if (!confirm('✅ 双核检查通过。\n确定提交并覆盖远程 Git 吗？')) return;
+            
             const pushBtn = document.getElementById('pushBtn'); pushBtn.disabled = true; showToast('正在推送...', 'info');
             const apiBase = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path}`;
             const headers = { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
             
             const getResp = await fetch(apiBase, { method: 'GET', headers });
             let sha = null;
-            if (getResp.ok) { const d = await getResp.json(); sha = d.sha; }
+            if (getResp.ok) { const d = await getResp.json(); sha = d.sha; } 
             else if (getResp.status !== 404) throw new Error(getResp.status === 401 ? 'Token 无效' : `获取 SHA 失败: ${getResp.status}`);
             
             const body = { message: `🚑 提交: ${new Date().toLocaleString('zh-CN')}`, content: utf8ToBase64(code), branch: 'main' };
@@ -775,46 +745,15 @@
             const putResp = await fetch(apiBase, { method: 'PUT', headers, body: JSON.stringify(body) });
             if (!putResp.ok) throw new Error(putResp.status === 401 ? 'Token 无效' : '推送失败');
             
-            showToast('覆盖成功！', 'success');
-            addHistory(windowsData[activeWindowIndex], code);
+            showToast('覆盖成功！', 'success'); addHistory(windowsData[activeWindowIndex], code);
             
             const now = new Date();
             const backupItem = { time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }), timestamp: now.getTime(), content: code, name: 'Git提交备份', locked: false };
-            globalCloudBackups.unshift(backupItem); if (globalCloudBackups.length > 30) globalCloudBackups.pop();
-            savePersistedData(); renderCloudGrid();
+            globalCloudBackups.unshift(backupItem); if (globalCloudBackups.length > 30) globalCloudBackups.pop(); savePersistedData(); renderCloudGrid();
         } catch (e) { 
             addLog(windowsData[activeWindowIndex], '推送失败', `<span class="error-report">${e.message}</span>`); showToast(e.message, 'error'); 
         } finally { document.getElementById('pushBtn').disabled = false; }
     }
-
-    function doSearch(direction) {
-        const query = document.getElementById('searchInput').value;
-        if (!query) { clearSearch(); return; }
-        if (query !== currentQuery) {
-            clearSearchHighlights(); currentQuery = query;
-            const docText = editor.getValue(); let startIndex = 0;
-            while ((startIndex = docText.indexOf(query, startIndex)) !== -1) {
-                searchMarks.push({ from: editor.posFromIndex(startIndex), to: editor.posFromIndex(startIndex + query.length) });
-                startIndex += query.length;
-            }
-            if (searchMarks.length === 0) { document.getElementById('searchStatus').textContent = '0 / 0'; showToast('未找到', 'error'); return; }
-            currentMatchIndex = -1;
-        }
-        currentMatchIndex = direction === 'next' ? (currentMatchIndex + 1) % searchMarks.length : (currentMatchIndex - 1 + searchMarks.length) % searchMarks.length;
-        currentMarks.forEach(m => m.clear()); currentMarks = [];
-        const currentCoord = searchMarks[currentMatchIndex];
-        currentMarks.push(editor.markText(currentCoord.from, currentCoord.to, { className: 'cm-search-current' }));
-        editor.scrollIntoView({ line: currentCoord.from.line, ch: currentCoord.from.ch }, 200);
-        editor.setSelection(currentCoord.from, currentCoord.to);
-        document.getElementById('searchStatus').textContent = `${currentMatchIndex + 1} / ${searchMarks.length}`;
-    }
-
-    function clearSearchHighlights() {
-        currentMarks.forEach(m => m.clear()); currentMarks = []; searchMarks = []; currentMatchIndex = -1; currentQuery = '';
-        document.getElementById('searchStatus').textContent = '0 / 0';
-    }
-
-    function clearSearch() { document.getElementById('searchInput').value = ''; clearSearchHighlights(); }
 
     function setupDropZone() {
         const d = document.getElementById('dropArea'), f = document.getElementById('fileInput');
@@ -832,11 +771,9 @@
         reader.onload = (ev) => {
             const content = ev.target.result, win = windowsData[activeWindowIndex];
             if (editor.getValue().trim() !== '') { if (!confirm('将覆盖当前内容，是否继续？')) return; }
-            editor.setValue(content); win.content = content;
-            editor.setOption('mode', ext === 'html' ? 'htmlmixed' : 'text/plain');
+            editor.setValue(content); win.content = content; editor.setOption('mode', ext === 'html' ? 'htmlmixed' : 'text/plain');
             isReadOnly = true; editor.setOption('readOnly', true); updateToggleBtnUI();
-            addLog(win, `导入: ${file.name}`); savePersistedData(); showToast('文件已导入', 'success');
-            runValidation();
+            addLog(win, `导入: ${file.name}`); savePersistedData(); showToast('文件已导入', 'success'); runValidation();
         };
         reader.readAsText(file); document.getElementById('fileInput').value = '';
     }
@@ -865,13 +802,11 @@
     function addLog(win, action, diffHtml = '') { win.logs.unshift({ time: new Date().toLocaleTimeString('zh-CN'), action: action, diff: diffHtml }); if (win.logs.length > 50) win.logs.pop(); if (windowsData[activeWindowIndex] === win) renderLogs(); }
     function renderLogs() { const l = document.getElementById('logList'), win = windowsData[activeWindowIndex]; if (!win || win.logs.length === 0) { l.innerHTML = '<div style="color:#94a3b8; font-size:12px; text-align:center; margin-top:20px;">暂无记录</div>'; return; } l.innerHTML = win.logs.map(i => `<div class="log-item"><span class="time">${i.time} - ${i.action}</span><div class="diff">${i.diff}</div></div>`).join(''); }
     function clearCurrentLogs() { const w = windowsData[activeWindowIndex]; if (!w) return; if (confirm('清空当前操作日志？')) { w.logs = []; savePersistedData(); renderLogs(); showToast('已清空', 'success'); } }
-    function addHistory(win, content) {
-        win.history.unshift({ time: new Date().toLocaleString('zh-CN'), content });
-        if (win.history.length > 6) win.history.pop();
-        if (windowsData[activeWindowIndex] === win) renderHistory();
-        savePersistedData();
-    }
-    function renderHistory() { const l = document.getElementById('historyList'), w = windowsData[activeWindowIndex]; if (!w || w.history.length === 0) { l.innerHTML ='<div style="color:#94a3b8; font-size:12px; text-align:center; margin-top:20px;">暂无历史快照</div>'; return; }
+    function addHistory(win, content) { win.history.unshift({ time: new Date().toLocaleString('zh-CN'), content }); if (win.history.length > 6) win.history.pop(); if (windowsData[activeWindowIndex] === win) renderHistory(); savePersistedData(); }
+    
+    function renderHistory() { 
+        const l = document.getElementById('historyList'), w = windowsData[activeWindowIndex]; 
+        if (!w || w.history.length === 0) { l.innerHTML ='<div style="color:#94a3b8; font-size:12px; text-align:center; margin-top:20px;">暂无历史快照</div>'; return; }
         l.innerHTML = w.history.map((h,idx)=>`
             <div class="log-item">
                 <span class="time">${h.time}</span>
@@ -881,32 +816,21 @@
                 </div>
             </div>`).join('');
     }
+    
     function restoreHistory(idx){
-        const win = windowsData[activeWindowIndex];
-        const h = win.history[idx];
+        const win = windowsData[activeWindowIndex]; const h = win.history[idx];
         if(!confirm(`恢复快照：${h.time}？当前内容会被覆盖`)) return;
-        editor.setValue(h.content);
-        win.content = h.content;
-        isReadOnly = true;
-        editor.setOption('readOnly',true);
-        updateToggleBtnUI();
-        savePersistedData();
-        renderHistory();
-        runValidation();
-        showToast('已恢复快照','success');
+        editor.setValue(h.content); win.content = h.content; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); savePersistedData(); renderHistory(); runValidation(); showToast('已恢复快照','success');
     }
+    
     function deleteHistory(idx){
-        const win = windowsData[activeWindowIndex];
-        win.history.splice(idx,1);
-        savePersistedData();
-        renderHistory();
-        showToast('已删除快照','success');
+        const win = windowsData[activeWindowIndex]; win.history.splice(idx,1); savePersistedData(); renderHistory(); showToast('已删除快照','success');
     }
+    
     function renderCloudGrid(){
         const grid = document.getElementById('cloudGrid');
         if(!globalCloudBackups || globalCloudBackups.length ===0){
-            grid.innerHTML = `<div class="cloud-card empty" style="grid-column:1/-1;">暂无云仓备份，点击手动备份保存</div>`;
-            return;
+            grid.innerHTML = `<div class="cloud-card empty" style="grid-column:1/-1;">暂无云仓备份，点击手动备份保存</div>`; return;
         }
         grid.innerHTML = globalCloudBackups.map((item,idx)=>`
             <div class="cloud-card ${item.locked ? 'locked':''}">
@@ -921,162 +845,105 @@
                     <button class="cloud-icon-btn del" onclick="delCloudBackup(${idx})" title="删除">🗑️</button>
                     <button class="cloud-icon-btn" onclick="toggleLockCloudBackup(${idx})" title="${item.locked?'解锁':'锁定'}">${item.locked?'🔓':'🔒'}</button>
                 </div>
-            </div>
-        `).join('');
+            </div>`).join('');
     }
+    
     function manualBackupCloud(){
         const code = editor.getValue();
         if(!code.trim()) return showToast('代码为空，无法备份','error');
         const name = prompt('备份名称：',`备份_${new Date().toLocaleString('zh-CN')}`);
         if(!name) return;
         const now = new Date();
-        const backupItem = {
-            time: now.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),
-            timestamp: now.getTime(),
-            content: code,
-            name: name.trim(),
-            locked: false
-        };
-        globalCloudBackups.unshift(backupItem);
-        if(globalCloudBackups.length>30) globalCloudBackups.pop();
-        savePersistedData();
-        renderCloudGrid();
-        showToast('✅ 云仓备份成功','success');
+        const backupItem = { time: now.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}), timestamp: now.getTime(), content: code, name: name.trim(), locked: false };
+        globalCloudBackups.unshift(backupItem); if(globalCloudBackups.length>30) globalCloudBackups.pop(); savePersistedData(); renderCloudGrid(); showToast('✅ 云仓备份成功','success');
     }
+    
     function loadCloudBackup(idx){
         const item = globalCloudBackups[idx];
         if(!confirm(`载入备份【${item.name}】，覆盖当前编辑器内容？`)) return;
-        editor.setValue(item.content);
-        windowsData[activeWindowIndex].content = item.content;
-        isReadOnly = true;
-        editor.setOption('readOnly',true);
-        updateToggleBtnUI();
-        savePersistedData();
-        runValidation();
-        showToast('已载入备份','success');
+        editor.setValue(item.content); windowsData[activeWindowIndex].content = item.content; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); savePersistedData(); runValidation(); showToast('已载入备份','success');
     }
+    
     function renameCloudBackup(idx){
-        const item = globalCloudBackups[idx];
-        const newName = prompt('修改备份名称：',item.name);
+        const item = globalCloudBackups[idx]; const newName = prompt('修改备份名称：',item.name);
         if(!newName || newName.trim()==='') return;
-        item.name = newName.trim();
-        savePersistedData();
-        renderCloudGrid();
+        item.name = newName.trim(); savePersistedData(); renderCloudGrid();
     }
+    
     function delCloudBackup(idx){
         const item = globalCloudBackups[idx];
         if(item.locked) return showToast('该备份已锁定，不能删除','error');
         if(!confirm(`确认删除备份【${item.name}】？`)) return;
-        globalCloudBackups.splice(idx,1);
-        savePersistedData();
-        renderCloudGrid();
-        showToast('已删除备份','success');
+        globalCloudBackups.splice(idx,1); savePersistedData(); renderCloudGrid(); showToast('已删除备份','success');
     }
+    
     function toggleLockCloudBackup(idx){
-        globalCloudBackups[idx].locked = !globalCloudBackups[idx].locked;
-        savePersistedData();
-        renderCloudGrid();
-        showToast(globalCloudBackups[idx].locked ? '已锁定':'已解锁','success');
+        globalCloudBackups[idx].locked = !globalCloudBackups[idx].locked; savePersistedData(); renderCloudGrid(); showToast(globalCloudBackups[idx].locked ? '已锁定':'已解锁','success');
     }
+    
     function getGitConfig(){
-        return {
-            owner: document.getElementById('ghOwner').value.trim(),
-            repo: document.getElementById('ghRepo').value.trim(),
-            path: document.getElementById('ghPath').value.trim(),
-            token: document.getElementById('ghToken').value.trim()
-        }
+        return { owner: document.getElementById('ghOwner').value.trim(), repo: document.getElementById('ghRepo').value.trim(), path: document.getElementById('ghPath').value.trim(), token: document.getElementById('ghToken').value.trim() }
     }
+    
     function saveToken(){
         const cfg = getGitConfig();
-        localStorage.setItem('rescue_gh_token',cfg.token);
-        localStorage.setItem('rescue_gh_repo',cfg.repo);
+        localStorage.setItem('rescue_gh_token',cfg.token); localStorage.setItem('rescue_gh_repo',cfg.repo);
         let history = JSON.parse(localStorage.getItem('rescue_repo_history')||'[]');
         const repoKey = `${cfg.owner}/${cfg.repo}`;
-        history = history.filter(x=>x!==repoKey);
-        history.unshift(repoKey);
-        if(history.length>8) history.pop();
-        localStorage.setItem('rescue_repo_history',JSON.stringify(history));
-        renderRepoHistory();
-        showToast('配置已保存','success');
+        history = history.filter(x=>x!==repoKey); history.unshift(repoKey); if(history.length>8) history.pop();
+        localStorage.setItem('rescue_repo_history',JSON.stringify(history)); renderRepoHistory(); showToast('配置已保存','success');
     }
+    
     function renderRepoHistory(){
         const listEl = document.getElementById('repoHistoryList');
         const history = JSON.parse(localStorage.getItem('rescue_repo_history')||'[]');
-        if(!history.length){
-            listEl.innerHTML = `<div class="repo-history-item" style="color:#94a3b8;">暂无历史仓库</div>`;
-            return;
-        }
+        if(!history.length){ listEl.innerHTML = `<div class="repo-history-item" style="color:#94a3b8;">暂无历史仓库</div>`; return; }
         listEl.innerHTML = history.map(item=>`
-            <div class="repo-history-item" onclick="selectRepoHistory('${item}')">${item}</div>
-        `).join('');
+            <div class="repo-history-item" onclick="selectRepoHistory('${item}')">
+                <span>${item}</span>
+                <span class="del-history-btn" onclick="deleteRepoHistory(event, '${item}')" title="删除此记录">✕</span>
+            </div>`).join('');
     }
+
+    function deleteRepoHistory(e, val) {
+        e.stopPropagation(); 
+        let history = JSON.parse(localStorage.getItem('rescue_repo_history')||'[]');
+        history = history.filter(x => x !== val); localStorage.setItem('rescue_repo_history', JSON.stringify(history)); renderRepoHistory(); showToast('已删除该历史记录', 'success');
+    }
+
     function selectRepoHistory(val){
         const parts = val.split('/');
-        if (parts.length === 2) {
-            document.getElementById('ghOwner').value = parts[0];
-            document.getElementById('ghRepo').value = parts[1];
-        } else {
-            document.getElementById('ghRepo').value = val;
-        }
+        if (parts.length === 2) { document.getElementById('ghOwner').value = parts[0]; document.getElementById('ghRepo').value = parts[1]; } else { document.getElementById('ghRepo').value = val; }
         document.getElementById('repoHistoryList').classList.remove('active');
     }
+    
     async function pullFromGit(){
         try{
             const cfg = getGitConfig();
             if(!cfg.owner||!cfg.repo||!cfg.path) return showToast('填写仓库信息','error');
-            const pullBtn = document.getElementById('pullBtn');
-            pullBtn.disabled = true;
-            showToast('拉取远程文件...','info');
+            const pullBtn = document.getElementById('pullBtn'); pullBtn.disabled = true; showToast('拉取远程文件...','info');
             const api = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path}`;
-            const headers = {};
-            if(cfg.token) headers['Authorization'] = `token ${cfg.token}`;
+            const headers = {}; if(cfg.token) headers['Authorization'] = `token ${cfg.token}`;
             const res = await fetch(api,{headers});
-            if(!res.ok){
-                if(res.status===404) throw new Error('远程文件不存在');
-                throw new Error(`请求错误 ${res.status}`);
-            }
-            const json = await res.json();
-            const text = base64ToUtf8(json.content);
-            const win = windowsData[activeWindowIndex];
-            if(editor.getValue().trim()!==''){
-                if(!confirm('当前编辑器有内容，是否覆盖？')){
-                    pullBtn.disabled=false;
-                    return;
-                }
-            }
-            editor.setValue(text);
-            win.content = text;
-            isReadOnly = true;
-            editor.setOption('readOnly',true);
-            updateToggleBtnUI();
-            addLog(win,'拉取成功',`远程路径：${cfg.path}`);
-            addHistory(win,text);
-            savePersistedData();
-            runValidation();
-            showToast('✅ 拉取完成','success');
+            if(!res.ok){ if(res.status===404) throw new Error('远程文件不存在'); throw new Error(`请求错误 ${res.status}`); }
+            const json = await res.json(); const text = base64ToUtf8(json.content); const win = windowsData[activeWindowIndex];
+            if(editor.getValue().trim()!==''){ if(!confirm('当前编辑器有内容，是否覆盖？')){ pullBtn.disabled=false; return; } }
+            editor.setValue(text); win.content = text; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); addLog(win,'拉取成功',`远程路径：${cfg.path}`); addHistory(win,text); savePersistedData(); runValidation(); showToast('✅ 拉取完成','success');
         }catch(e){
-            addLog(windowsData[activeWindowIndex],'拉取失败',`<span class="error-report">${e.message}</span>`);
-            showToast(e.message,'error');
-        }finally{
-            document.getElementById('pullBtn').disabled = false;
-        }
+            addLog(windowsData[activeWindowIndex],'拉取失败',`<span class="error-report">${e.message}</span>`); showToast(e.message,'error');
+        }finally{ document.getElementById('pullBtn').disabled = false; }
     }
-    function utf8ToBase64(str){
-        return btoa(unescape(encodeURIComponent(str)));
-    }
-    function base64ToUtf8(b64){
-        return decodeURIComponent(escape(atob(b64.replace(/\n/g,''))));
-    }
+    
+    function utf8ToBase64(str){ return btoa(unescape(encodeURIComponent(str))); }
+    function base64ToUtf8(b64){ return decodeURIComponent(escape(atob(b64.replace(/\n/g,'')))); }
+    
     function showToast(msg,type='info'){
         const t = document.getElementById('toast');
-        t.textContent = msg;
-        t.className = 'toast '+type;
-        t.style.display='block';
+        t.textContent = msg; t.className = 'toast '+type; t.style.display='block';
         clearTimeout(showToast.timer);
-        showToast.timer = setTimeout(()=>{
-            t.style.display='none';
-        },2200);
+        showToast.timer = setTimeout(()=>{ t.style.display='none'; },2200);
     }
+    
     window.switchWindow = switchWindow;
     window.promptRename = promptRename;
     window.createNewWindow = createNewWindow;
@@ -1088,6 +955,7 @@
     window.delCloudBackup = delCloudBackup;
     window.toggleLockCloudBackup = toggleLockCloudBackup;
     window.selectRepoHistory = selectRepoHistory;
+    window.deleteRepoHistory = deleteRepoHistory;
 </script>
 </body>
-</html>
+</html>  
