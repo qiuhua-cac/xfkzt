@@ -44,6 +44,34 @@
     .btn-warning { background: #f59e0b; color: #fff; border-color: #f59e0b; }
     .btn-danger { background: #fff; color: #ef4444; border: 1px solid #fca5a5; }
     .btn-sm { padding: 5px 10px; font-size: 12px; width: auto; }
+      /* ======== 双端统一上传区域 ======== */
+    .upload-drop-area { 
+        border: 1px dashed #cbd5e1; 
+        border-radius: 8px; 
+        padding: 25px 10px; 
+        text-align: center; 
+        cursor: pointer; 
+        background: #f8fafc; 
+        position: relative; 
+        transition: all 0.2s;
+    }
+    .upload-drop-area:hover {
+        border-color: #3b82f6;
+        background: #f1f5f9;
+    }
+    
+    .upload-drop-area .upload-text { 
+        font-size: 13px; 
+        color: #64748b; 
+        pointer-events: none; 
+        line-height: 1.6; 
+    }
+    .upload-drop-area .upload-text b { 
+        color: #3b82f6; 
+        font-weight: 500; 
+        font-size: 14px;
+    }
+    /* ================================== */
 
     .panel-content-area { flex: 1; overflow-y: auto; display: none; }
     .panel-content-area.active { display: block; }
@@ -124,45 +152,6 @@
         .mobile-overlay { display: none !important; }
         .mobile-menu-btn { display: none !important; }
         .action-panel { padding: 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #f1f5f9; }
-        /* ======== 双端统一上传区域 ======== */
-        .upload-drop-area { 
-            border: 1px dashed #cbd5e1; 
-            border-radius: 8px; 
-            padding: 25px 10px; 
-            text-align: center; 
-            cursor: pointer; 
-            background: #f8fafc; 
-            position: relative; 
-            transition: all 0.2s;
-        }
-        .upload-drop-area:hover {
-            border-color: #3b82f6;
-            background: #f1f5f9;
-        }
-        
-        /* 彻底隐藏系统自带的“选择文件”按钮 */
-        .upload-drop-area input[type="file"] { 
-            position: absolute; 
-            inset: 0; 
-            opacity: 0; 
-            cursor: pointer; 
-            width: 100%;
-            height: 100%;
-            font-size: 0; 
-        }
-        
-        .upload-drop-area .upload-text { 
-            font-size: 13px; 
-            color: #64748b; 
-            pointer-events: none; 
-            line-height: 1.6; 
-        }
-        .upload-drop-area .upload-text b { 
-            color: #3b82f6; 
-            font-weight: 500; 
-            font-size: 14px;
-        }
-        /* ================================== */
         .btn { padding: 8px 10px; font-size: 13px; font-weight: normal; }
         .panel-tabs { display: flex; border-bottom: 1px solid #e2e8f0; align-items: stretch; justify-content: space-between; flex-shrink: 0; padding: 0 10px; }
         .panel-tabs-left { display: flex; gap: 5px; }
@@ -285,7 +274,7 @@
     <div class="left-panel" id="leftPanel">
         <div class="action-panel">
             <div class="upload-drop-area" id="dropArea">
-                <input type="file" id="fileInput" accept=".txt, .html">
+                <input type="file" id="fileInput" accept=".txt, .html" style="display: none;">
                 <div class="upload-text">点击或拖拽文件<br><b>支持 TXT / HTML</b></div>
             </div>
             <button class="btn btn-secondary" id="pullBtn">☁ 从 Git 仓库拉取</button>
