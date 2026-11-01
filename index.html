@@ -443,7 +443,24 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('ghToken').value = localStorage.getItem('rescue_gh_token') || '';
-        document.getElementById('ghRepo').value = localStorage.getItem('rescue_gh_repo') || 'new';
+        
+        // ★ 核心修复：如果当前记录是空或 'new'，自动读取最近一次保存的历史仓库
+        let currentRepoVal = localStorage.getItem('rescue_gh_repo');
+        let repoHistory = JSON.parse(localStorage.getItem('rescue_repo_history') || '[]');
+        if ((!currentRepoVal || currentRepoVal === 'new') && repoHistory.length > 0) {
+            // 取历史记录第一条（格式通常为 "owner/repo"）
+            const lastRepo = repoHistory[0];
+            const parts = lastRepo.split('/');
+            if (parts.length === 2) {
+                document.getElementById('ghOwner').value = parts[0];
+                document.getElementById('ghRepo').value = parts[1];
+            } else {
+                document.getElementById('ghRepo').value = lastRepo;
+            }
+        } else {
+            // 如果有明确记录，照常显示
+            document.getElementById('ghRepo').value = currentRepoVal || 'new';
+        }
         renderRepoHistory();
 
         const savedCloud = localStorage.getItem('rescue_cloud_backups');
