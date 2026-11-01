@@ -181,7 +181,7 @@
         .config-row #ghToken { flex: 1 1 100%; }
         .config-row #saveConfigBtn { padding: 6px 12px; flex: 1 1 100%; height: auto; }
         .main-workspace { display: flex; flex: 1; flex-direction: column; padding: 10px; margin: 10px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow: hidden; position: relative; min-height: 0; }
-        .left-panel { position: absolute; left: 10px; top: 10px; bottom: 10px; width: 85vw; max-width: 320px; z-index: 60; transform: translateX(-120%); box-shadow: 2px 0 15px rgba(0,0,0,0.1); border-radius: 12px; overflow: hidden; background: #fff; display: flex; flex-direction: column; transition: transform 0.3s ease; }
+        .left-panel { position: fixed; left: 0; top: 0; bottom: 0; width: 85vw; max-width: 320px; height: 100vh; z-index: 100; transform: translateX(-120%); box-shadow: 2px 0 15px rgba(0,0,0,0.1); border-radius: 0; overflow-y: auto; background: #fff; display: flex; flex-direction: column; transition: transform 0.3s ease; }
         .left-panel.open { transform: translateX(0); }
         .mobile-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 50; }
         .mobile-overlay.open { display: block; }
