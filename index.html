@@ -447,7 +447,15 @@
         const savedCloud = localStorage.getItem('rescue_cloud_backups');
         if (savedCloud) try { globalCloudBackups = JSON.parse(savedCloud) || []; } catch(e) { globalCloudBackups = []; }
         
-        windowsData = [initWindowData()];
+        const savedWindows = localStorage.getItem('rescue_windows_data');
+        if (savedWindows) {
+            try {
+                const parsed = JSON.parse(savedWindows);
+                windowsData = (Array.isArray(parsed) && parsed.length > 0) ? parsed : [initWindowData()];
+            } catch(e) { windowsData = [initWindowData()]; }
+        } else {
+            windowsData = [initWindowData()];
+        }
         
         editor = CodeMirror.fromTextArea(document.getElementById('mainEditor'), {
             lineNumbers: true, mode: "htmlmixed", theme: "default", lineWrapping: true, readOnly: true, scrollbarStyle:"native", dragDrop:false
