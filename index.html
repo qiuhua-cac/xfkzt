@@ -349,6 +349,7 @@
         <div class="panel-content-area" id="panel-history">
     <div class="history-batch-bar" id="historyBatchBar">
         <button id="batchToggleBtn">批量删除</button>
+        <button id="batchSelectAllBtn" style="display:none;">全选</button>
         <button class="batch-danger" id="batchDeleteBtn" style="display:none;">删除选中 (0)</button>
     </div>
     <div id="historyList" style="padding:10px;"></div>
@@ -547,6 +548,7 @@
         document.getElementById('scOkBtn').addEventListener('click', () => { closeSubmitConfirm(); pushToGit(); });
         document.getElementById('manualSaveHistoryBtn').addEventListener('click', manualSaveHistory);
         document.getElementById('batchToggleBtn').addEventListener('click', toggleBatchMode);
+        document.getElementById('batchSelectAllBtn').addEventListener('click', toggleSelectAllHistory);
         document.getElementById('batchDeleteBtn').addEventListener('click', batchDeleteHistory);
         document.getElementById('manualBackupBtn').addEventListener('click', manualBackupCloud);
         document.getElementById('panelActionBtn').addEventListener('click', handlePanelAction);
@@ -1047,9 +1049,12 @@
         const list = document.getElementById('historyList');
         const delBtn = document.getElementById('batchDeleteBtn');
         const tglBtn = document.getElementById('batchToggleBtn');
+        const allBtn = document.getElementById('batchSelectAllBtn');
         list.classList.toggle('batch-mode', batchMode);
         delBtn.style.display = batchMode ? 'inline-block' : 'none';
+        allBtn.style.display = batchMode ? 'inline-block' : 'none';
         tglBtn.textContent = batchMode ? '取消批量' : '批量删除';
+        allBtn.textContent = '全选';
         if (!batchMode) {
             list.querySelectorAll('.hc-check').forEach(c => c.checked = false);
             delBtn.textContent = '删除选中 (0)';
@@ -1067,6 +1072,17 @@
                 delBtn.textContent = `删除选中 (${n})`;
             };
         });
+    }
+
+    function toggleSelectAllHistory() {
+        const list = document.getElementById('historyList');
+        const checks = list.querySelectorAll('.hc-check');
+        if (checks.length === 0) return;
+        const allChecked = Array.from(checks).every(c => c.checked);
+        checks.forEach(c => c.checked = !allChecked);
+        const n = allChecked ? 0 : checks.length;
+        document.getElementById('batchDeleteBtn').textContent = `删除选中 (${n})`;
+        document.getElementById('batchSelectAllBtn').textContent = allChecked ? '全选' : '取消全选';
     }
 
     function batchDeleteHistory() {
