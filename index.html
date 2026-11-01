@@ -170,6 +170,33 @@
 
     /* ================= 移动端专属修复 ================= */
     @media (max-width: 768px) {
+              /* === 手机端头部布局强制修复 === */
+        .right-header-top {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            align-items: flex-start !important;
+            padding: 10px !important;
+        }
+        .mobile-menu-btn {
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        .right-tabs {
+            display: flex !important;
+            gap: 8px !important;
+            flex: 1;
+            margin-bottom: 8px;
+        }
+        .right-header-tools {
+            display: flex !important;
+            gap: 8px !important;
+            margin-left: 0 !important; /* 清除电脑端的向右推 */
+            width: 100% !important;
+            justify-content: flex-start !important;
+            padding: 0 !important;
+            flex-wrap: wrap !important;
+        }
+        /* ============================== */
         .config-row { padding: 8px 12px; gap: 8px; background: #fff; border-radius: 10px 10px 0 0; }
         .config-row input { padding: 6px; font-size: 12px; flex: 1 1 40%; }
         .config-row #ghToken { flex: 1 1 100%; }
