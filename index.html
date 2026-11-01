@@ -1302,20 +1302,25 @@
         const cfg = getGitConfig();
         localStorage.setItem('rescue_gh_token',cfg.token); localStorage.setItem('rescue_gh_repo',cfg.repo);
         let history = JSON.parse(localStorage.getItem('rescue_repo_history')||'[]');
-        const repoKey = `${cfg.owner}/${cfg.repo}`;
+        // ★ 修改：如果用户输入了仓库名，自动组合成 owner/repo 存入历史，防止丢失用户名
+        const repoKey = cfg.repo ? `${cfg.owner}/${cfg.repo}` : cfg.repo;
         history = history.filter(x=>x!==repoKey); history.unshift(repoKey); if(history.length>8) history.pop();
         localStorage.setItem('rescue_repo_history',JSON.stringify(history)); renderRepoHistory(); showToast('配置已保存','success');
     }
 
-    function renderRepoHistory(){
+     function renderRepoHistory(){
         const listEl = document.getElementById('repoHistoryList');
         const history = JSON.parse(localStorage.getItem('rescue_repo_history')||'[]');
         if(!history.length){ listEl.innerHTML = `<div class="repo-history-item" style="color:#94a3b8;">暂无历史仓库</div>`; return; }
-        listEl.innerHTML = history.map(item=>`
+        listEl.innerHTML = history.map(item=>{
+            // ★ 修改：如果包含 '/'，只显示斜杠后面的仓库名
+            const displayName = item.includes('/') ? item.split('/')[1] : item;
+            return `
             <div class="repo-history-item" onclick="selectRepoHistory('${item}')">
-                <span>${item}</span>
+                <span>${displayName}</span>
                 <span class="del-history-btn" onclick="deleteRepoHistory(event, '${item}')" title="删除此记录">✕</span>
-            </div>`).join('');
+            </div>`;
+        }).join('');
     }
 
     function deleteRepoHistory(e, val) {
