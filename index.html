@@ -217,12 +217,65 @@
         .status-bar.ok { color: #15803d; background: #f0fdf4; border-top-color: #bbf7d0; }
         .status-bar.error { color: #b91c1c; background: #fef2f2; font-weight: 600; border-top-color: #fca5a5; }
     }
+      /* ===== 提交确认弹窗（双端通用） ===== */
+    .submit-confirm-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100000; align-items: center; justify-content: center; }
+    .submit-confirm-modal.active { display: flex; }
+    .submit-confirm-box { background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); width: 320px; max-width: 88vw; padding: 20px; }
+    .submit-confirm-box h3 { font-size: 15px; color: #1e293b; margin-bottom: 14px; text-align: center; }
+    .submit-confirm-box .sc-row { font-size: 13px; color: #475569; margin-bottom: 8px; display: flex; gap: 6px; }
+    .submit-confirm-box .sc-row b { color: #1e293b; font-weight: 600; word-break: break-all; }
+    .submit-confirm-box .sc-tip { font-size: 13px; color: #b91c1c; font-weight: 600; text-align: center; margin: 14px 0; }
+    .submit-confirm-actions { display: flex; gap: 10px; margin-top: 6px; }
+    .submit-confirm-actions button { flex: 1; padding: 9px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
+    .submit-confirm-actions .sc-cancel { background: #e2e8f0; color: #475569; }
+    .submit-confirm-actions .sc-ok { background: #3b82f6; color: #fff; }
+
+    /* ===== 历史面板：3 列网格 + 批量删除 + 备注 ===== */
+    #historyList { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    @media (max-width: 768px) { #historyList { grid-template-columns: repeat(3, 1fr); gap: 6px; } }
+    .history-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 4px; position: relative; }
+    .history-card .hc-check { position: absolute; top: 6px; left: 6px; display: none; }
+    #historyList.batch-mode .history-card .hc-check { display: block; }
+    .history-card .hc-name { font-size: 12px; font-weight: 600; color: #1e293b; word-break: break-all; padding-left: 0; }
+    #historyList.batch-mode .history-card .hc-name { padding-left: 20px; }
+    .history-card .hc-time { font-size: 10px; color: #94a3b8; line-height: 1.3; }
+    .history-card .hc-note { font-size: 11px; color: #3b82f6; background: #f0f9ff; border-radius: 4px; padding: 3px 5px; word-break: break-all; display: none; }
+    .history-card .hc-note.has-note { display: block; }
+    .history-card .hc-actions { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+    .history-card .hc-actions button { flex: 1; padding: 4px 2px; font-size: 10px; border-radius: 4px; cursor: pointer; border: 1px solid #cbd5e1; background: #fff; color: #475569; }
+    .history-card .hc-actions button.hc-restore { color: #3b82f6; border-color: #93c5fd; }
+    .history-card .hc-actions button.hc-del { color: #ef4444; border-color: #fca5a5; }
+    .history-batch-bar { display: flex; gap: 8px; align-items: center; padding: 8px 10px 0; }
+    .history-batch-bar button { padding: 5px 10px; font-size: 12px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: #fff; color: #475569; font-weight: 600; }
+    .history-batch-bar button.batch-danger { color: #ef4444; border-color: #fca5a5; }
+
+    /* ===== 历史数量文字闪屏提示 ===== */
+    .history-flash { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 100001; font-size: 18px; font-weight: 700; padding: 14px 24px; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.2); display: none; pointer-events: none; }
+    .history-flash.yellow { background: #fef9c3; color: #a16207; border: 1px solid #fde047; }
+    .history-flash.red { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .history-flash.active { display: block; animation: hFlash 2s ease; }
+    @keyframes hFlash { 0%,100% { opacity: 0; } 15%,85% { opacity: 1; } }
 </style>
 </head>
 <body>
 
 <div class="toast" id="toast"></div>
 <div class="mobile-overlay" id="mobileOverlay"></div>
+  <!-- ==================== 提交确认弹窗 ==================== -->
+<div class="submit-confirm-modal" id="submitConfirmModal">
+    <div class="submit-confirm-box">
+        <h3>⚠️ 确认提交到远程仓库</h3>
+        <div class="sc-row">仓库：<b id="scRepoName">-</b></div>
+        <div class="sc-row">时间：<b id="scTime">-</b></div>
+        <div class="sc-tip">确定要提交并覆盖远程吗？</div>
+        <div class="submit-confirm-actions">
+            <button class="sc-cancel" id="scCancelBtn">取消</button>
+            <button class="sc-ok" id="scOkBtn">确定提交</button>
+        </div>
+    </div>
+</div>
+
+<div class="history-flash" id="historyFlash"></div>
 
 <iframe id="sandboxIframe" style="display:none;"></iframe>
 
@@ -293,7 +346,13 @@
         </div>
         
         <div class="panel-content-area active" id="panel-logs"><div id="logList" style="padding:10px;"></div></div>
-        <div class="panel-content-area" id="panel-history"><div id="historyList" style="padding:10px;"></div></div>
+        <div class="panel-content-area" id="panel-history">
+    <div class="history-batch-bar" id="historyBatchBar">
+        <button id="batchToggleBtn">批量删除</button>
+        <button class="batch-danger" id="batchDeleteBtn" style="display:none;">删除选中 (0)</button>
+    </div>
+    <div id="historyList" style="padding:10px;"></div>
+</div>
         <div class="panel-content-area" id="panel-cloud">
             <div style="padding: 10px 15px;"><button class="btn btn-secondary" id="manualBackupBtn" style="padding:8px; font-size:13px;">📥 手动备份当前代码</button></div>
             <div class="cloud-grid" id="cloudGrid"></div>
@@ -310,6 +369,7 @@
                     <button class="rt-btn" id="tabPreviewBtn">🖥️ 实时网页预览</button>
                 </div>
                 <div class="right-header-tools">
+                    <button class="rt-btn" id="manualSaveHistoryBtn">💾 保存历史</button>
                     <button class="rt-btn rt-btn-magic" id="formatBtn">✨ 自动排版</button>
                     <button class="rt-btn" id="editToggleBtn">🔓 解锁</button>
                     <button class="rt-btn" id="searchToggleBtn">🔍 搜索</button>
@@ -368,6 +428,9 @@
     let currentMatchIndex = -1; 
     let currentQuery = '';
     let currentErrors = [];
+    let autoHistoryTimer = null;
+    let lastHistoryCount = 0;
+    let batchMode = false;
     
     let previewTimer = null; 
     let isDrawerLocked = false; 
@@ -406,6 +469,7 @@
         renderTabs();
         switchWindow(0);
         setupDropZone();
+        startAutoHistory();
     });
 
     // === 移动端原生弹窗逻辑 ===
@@ -470,7 +534,12 @@
         
         document.getElementById('saveConfigBtn').addEventListener('click', saveToken);
         document.getElementById('pullBtn').addEventListener('click', pullFromGit);
-        document.getElementById('pushBtn').addEventListener('click', pushToGit);
+        document.getElementById('pushBtn').addEventListener('click', openSubmitConfirm);
+        document.getElementById('scCancelBtn').addEventListener('click', closeSubmitConfirm);
+        document.getElementById('scOkBtn').addEventListener('click', () => { closeSubmitConfirm(); pushToGit(); });
+        document.getElementById('manualSaveHistoryBtn').addEventListener('click', manualSaveHistory);
+        document.getElementById('batchToggleBtn').addEventListener('click', toggleBatchMode);
+        document.getElementById('batchDeleteBtn').addEventListener('click', batchDeleteHistory);
         document.getElementById('manualBackupBtn').addEventListener('click', manualBackupCloud);
         document.getElementById('panelActionBtn').addEventListener('click', handlePanelAction);
         document.getElementById('tabEditBtn').addEventListener('click', () => switchRightTab('edit'));
@@ -618,8 +687,7 @@
             const currentWin = windowsData[activeWindowIndex];
             if (currentCode !== currentWin.content) {
                 currentWin.content = currentCode;
-                currentWin.history.unshift({ time: new Date().toLocaleString('zh-CN'), content: currentCode });
-                if (currentWin.history.length > 6) currentWin.history.pop();
+                currentWin.history.unshift(makeHistoryEntry(currentWin.name, currentCode, currentWin.logs));
             }
             savePersistedData();
         }
@@ -633,7 +701,19 @@
     }
 
     function initWindowData() {
-        return { name: `窗口 ${windowsData.length + 1}`, content: DEFAULT_TEXT, logs: [], history: [{ time: new Date().toLocaleString('zh-CN'), content: DEFAULT_TEXT }] };
+        return { name: `窗口 ${windowsData.length + 1}`, content: DEFAULT_TEXT, logs: [], history: [makeHistoryEntry(`窗口 ${windowsData.length + 1}`, DEFAULT_TEXT, [])] };
+    }
+
+    function makeHistoryEntry(name, content, logs, note) {
+        const now = new Date();
+        return {
+            time: now.toLocaleString('zh-CN'),
+            timestamp: now.getTime(),
+            name: name,
+            content: content,
+            logs: JSON.parse(JSON.stringify(logs || [])),
+            note: note || ''
+        };
     }
 
     function checkHTMLStructure(code) {
@@ -761,13 +841,23 @@
         else showToast('代码格式已经很规范了', 'info');
     }
 
+    function openSubmitConfirm() {
+        const cfg = getGitConfig();
+        document.getElementById('scRepoName').textContent = (cfg.owner || '?') + '/' + (cfg.repo || '?');
+        document.getElementById('scTime').textContent = new Date().toLocaleString('zh-CN');
+        document.getElementById('submitConfirmModal').classList.add('active');
+    }
+
+    function closeSubmitConfirm() {
+        document.getElementById('submitConfirmModal').classList.remove('active');
+    }
+
     async function pushToGit() {
         try {
             const cfg = getGitConfig();
             if (!cfg.owner || !cfg.repo || !cfg.path || !cfg.token) return showToast('请填写完整配置', 'error');
             const code = editor.getValue(); if (!code || code.length < 10) return showToast('内容为空，无法提交', 'error');
             if (currentErrors.length > 0) return showToast('检测有报错，无法提交', 'error');
-            if (!confirm('✅ 双核检查通过。\n确定提交并覆盖远程 Git 吗？')) return;
             
             const pushBtn = document.getElementById('pushBtn'); pushBtn.disabled = true; showToast('正在推送...', 'info');
             const apiBase = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path}`;
@@ -890,37 +980,127 @@
         } 
     }
 
-    function addHistory(win, content) { 
-        win.history.unshift({ time: new Date().toLocaleString('zh-CN'), content }); 
-        if (win.history.length > 6) win.history.pop(); 
-        if (windowsData[activeWindowIndex] === win) renderHistory(); 
-        savePersistedData(); 
+    function addHistory(win, content, note) {
+        win.history.unshift(makeHistoryEntry(win.name, content, win.logs, note));
+        if (windowsData[activeWindowIndex] === win) renderHistory();
+        savePersistedData();
+        checkHistoryCount(win);
     }
 
-    function renderHistory() { 
-        const l = document.getElementById('historyList'), w = windowsData[activeWindowIndex]; 
-        if (!w || w.history.length === 0) { 
-            l.innerHTML ='<div style="color:#94a3b8; font-size:12px; text-align:center; margin-top:20px;">暂无历史快照</div>'; 
-            return; 
+    function renderHistory() {
+        const l = document.getElementById('historyList'), w = windowsData[activeWindowIndex];
+        if (!w || w.history.length === 0) {
+            l.innerHTML = '<div style="color:#94a3b8; font-size:12px; text-align:center; margin-top:20px; grid-column:1/-1;">暂无历史快照</div>';
+            return;
         }
-        l.innerHTML = w.history.map((h,idx)=>`
-            <div class="log-item">
-                <span class="time">${h.time}</span>
-                <div style="display:flex;gap:6px;margin-top:6px;">
-                    <button class="btn btn-secondary btn-sm" onclick="restoreHistory(${idx})">恢复</button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteHistory(${idx})">删除</button>
+        l.innerHTML = w.history.map((h, idx) => `
+            <div class="history-card">
+                <input type="checkbox" class="hc-check" data-idx="${idx}">
+                <div class="hc-name">${h.name || w.name}</div>
+                <div class="hc-time">${h.time}</div>
+                <div class="hc-note ${h.note ? 'has-note' : ''}">${h.note || ''}</div>
+                <div class="hc-actions">
+                    <button class="hc-restore" onclick="restoreHistory(${idx})">恢复</button>
+                    <button onclick="renameHistoryNote(${idx})">备注</button>
+                    <button class="hc-del" onclick="deleteHistory(${idx})">删除</button>
                 </div>
             </div>`).join('');
     }
 
+    function renameHistoryNote(idx) {
+        const win = windowsData[activeWindowIndex];
+        const h = win && win.history[idx];
+        if (!h) return;
+        const newNote = prompt('为该历史记录添加备注：', h.note || '');
+        if (newNote === null) return;
+        h.note = newNote.trim();
+        savePersistedData();
+        renderHistory();
+        showToast('备注已更新', 'success');
+    }
+
     function restoreHistory(idx){
         const win = windowsData[activeWindowIndex]; const h = win.history[idx];
-        if(!confirm(`恢复快照：${h.time}？当前内容会被覆盖`)) return;
-        editor.setValue(h.content); win.content = h.content; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); savePersistedData(); renderHistory(); runValidation(); showToast('已恢复快照','success');
+        if(!confirm(`恢复快照：${h.name || win.name} ${h.time}？当前内容会被覆盖`)) return;
+        editor.setValue(h.content);
+        win.content = h.content;
+        if (h.logs) win.logs = JSON.parse(JSON.stringify(h.logs));
+        isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI();
+        renderLogs();
+        savePersistedData(); renderHistory(); runValidation(); showToast('已恢复快照','success');
     }
 
     function deleteHistory(idx){
         const win = windowsData[activeWindowIndex]; win.history.splice(idx,1); savePersistedData(); renderHistory(); showToast('已删除快照','success');
+    }
+
+    function toggleBatchMode() {
+        batchMode = !batchMode;
+        const list = document.getElementById('historyList');
+        const delBtn = document.getElementById('batchDeleteBtn');
+        const tglBtn = document.getElementById('batchToggleBtn');
+        list.classList.toggle('batch-mode', batchMode);
+        delBtn.style.display = batchMode ? 'inline-block' : 'none';
+        tglBtn.textContent = batchMode ? '取消批量' : '批量删除';
+        if (!batchMode) {
+            list.querySelectorAll('.hc-check').forEach(c => c.checked = false);
+            delBtn.textContent = '删除选中 (0)';
+        } else {
+            bindBatchChecks();
+        }
+    }
+
+    function bindBatchChecks() {
+        const list = document.getElementById('historyList');
+        const delBtn = document.getElementById('batchDeleteBtn');
+        list.querySelectorAll('.hc-check').forEach(c => {
+            c.onchange = () => {
+                const n = list.querySelectorAll('.hc-check:checked').length;
+                delBtn.textContent = `删除选中 (${n})`;
+            };
+        });
+    }
+
+    function batchDeleteHistory() {
+        const list = document.getElementById('historyList');
+        const checks = list.querySelectorAll('.hc-check:checked');
+        const idxs = Array.from(checks).map(c => parseInt(c.dataset.idx, 10)).sort((a, b) => b - a);
+        if (idxs.length === 0) return showToast('请先勾选要删除的记录', 'error');
+        if (!confirm(`确认删除选中的 ${idxs.length} 条历史记录？删除后不可恢复`)) return;
+        const win = windowsData[activeWindowIndex];
+        idxs.forEach(i => win.history.splice(i, 1));
+        savePersistedData();
+        renderHistory();
+        toggleBatchMode();
+        showToast(`已删除 ${idxs.length} 条记录`, 'success');
+    }
+
+    function manualSaveHistory() {
+        const win = windowsData[activeWindowIndex];
+        if (!win) return;
+        addHistory(win, editor.getValue());
+        showToast('已手动保存历史记录', 'success');
+    }
+
+    function startAutoHistory() {
+        if (autoHistoryTimer) clearInterval(autoHistoryTimer);
+        autoHistoryTimer = setInterval(() => {
+            windowsData.forEach(win => {
+                addHistory(win, win.content);
+            });
+        }, 60000);
+    }
+
+    function checkHistoryCount(win) {
+        const count = win.history.length;
+        if (count >= 15 && count % 15 === 0 && count !== lastHistoryCount) {
+            lastHistoryCount = count;
+            const flash = document.getElementById('historyFlash');
+            flash.className = 'history-flash ' + (count === 15 ? 'yellow' : 'red');
+            flash.textContent = '⚠️ 历史记录过多，记得删除部分';
+            flash.classList.add('active');
+            setTimeout(() => { flash.classList.remove('active'); }, 2000);
+        }
     }
 
     function renderCloudGrid(){
@@ -1046,6 +1226,7 @@
     window.closeWindow = closeWindow;
     window.restoreHistory = restoreHistory;
     window.deleteHistory = deleteHistory;
+    window.renameHistoryNote = renameHistoryNote;
     window.loadCloudBackup = loadCloudBackup;
     window.renameCloudBackup = renameCloudBackup;
     window.delCloudBackup = delCloudBackup;
