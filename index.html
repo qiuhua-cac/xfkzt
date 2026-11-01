@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Git 仓库控制台 (移动搜删版)</title>
+<title>Git 仓库控制台 (双端隔离版)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/xml/xml.min.js"></script>
@@ -17,24 +17,11 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
     body { background: #f1f5f9; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     
-    /* 搜索高亮 */
+    /* 公共样式 */
     .cm-search-current { background-color: #fde047 !important; border-bottom: 2px solid #eab308 !important; box-shadow: 0 0 4px rgba(234,179,8,0.5); }
-
-    /* 顶部栏 */
-    .top-bar { background: #fff; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; position: relative; z-index: 100; display: flex; flex-direction: column; }
-    
-    /* --- 电脑端顶部配置栏 --- */
-    @media (min-width: 769px) {
-        .config-row { padding: 8px 12px; display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; border-bottom: 1px solid #e2e8f0; width: 100%; }
-        .config-row input { padding: 5px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; outline: none; height: 30px; }
-        .config-row #ghOwner { width: 130px; flex-shrink: 0; }
-        .repo-selector-wrapper { position: relative; display: flex; align-items: center; flex: 1; min-width: 120px; height: 30px; }
-        .repo-selector-wrapper input { width: 100%; height: 100%; padding-right: 32px; }
-        .repo-dropdown-btn { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: #475569; z-index: 10; transition: background 0.2s; }
-        .config-row #ghPath { width: 140px; flex-shrink: 0; }
-        .config-row #ghToken { flex: 1; min-width: 200px; }
-        .config-row #saveConfigBtn { width: 90px; flex-shrink: 0; height: 30px; padding: 0; flex: 0 0 auto; font-size: 13px; border-radius: 4px; }
-    }
+    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 9999; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .toast.error { background: #ef4444; }
+    .toast.success { background: #10b981; }
     
     .repo-history-list { position: absolute; top: 100%; left: 0; right: 0; width: 100%; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: none; max-height: 200px; overflow-y: auto; margin-top: 4px; }
     .repo-history-list.active { display: block; }
@@ -51,36 +38,13 @@
     .tab-item .close-tab { font-size: 14px; color: #94a3b8; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .add-tab-btn { padding: 8px 12px; background: transparent; border: none; font-size: 18px; color: #64748b; cursor: pointer; }
 
-    /* 主工作区 */
-    .main-workspace { display: flex; flex: 1; overflow: hidden; position: relative; min-height: 0; }
-    .left-panel { width: 380px; background: #fff; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; flex-shrink: 0; transition: transform 0.3s ease; }
-    .mobile-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 50; }
-
-    .action-panel { padding: 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #f1f5f9; }
-    .upload-drop-area { border: 1px dashed #cbd5e1; border-radius: 6px; padding: 25px 10px; text-align: center; cursor: pointer; background: #f8fafc; position: relative; }
-    .upload-drop-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-    .upload-drop-area .upload-text { font-size: 13px; color: #64748b; pointer-events: none; line-height: 1.5; }
-    .upload-drop-area .upload-text b { color: #3b82f6; font-weight: normal; }
-
-    .btn { width: 100%; padding: 8px 10px; background: #3b82f6; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: normal; cursor: pointer; white-space: nowrap; display: flex; justify-content: center; align-items: center; gap: 6px; }
+    .btn { width: 100%; padding: 10px; background: #3b82f6; color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; display: flex; justify-content: center; align-items: center; gap: 6px; }
     .btn:disabled { background: #94a3b8; }
     .btn-secondary { background: #fff; color: #1e293b; border: 1px solid #cbd5e1; }
     .btn-warning { background: #f59e0b; color: #fff; border-color: #f59e0b; }
     .btn-danger { background: #fff; color: #ef4444; border: 1px solid #fca5a5; }
     .btn-sm { padding: 5px 10px; font-size: 12px; width: auto; }
 
-    /* --- 左侧面板 Tab 栏 --- */
-    @media (min-width: 769px) {
-        .panel-tabs { display: flex; border-bottom: 1px solid #e2e8f0; align-items: stretch; justify-content: space-between; flex-shrink: 0; padding: 0 10px; }
-        .panel-tabs-left { display: flex; gap: 5px; }
-        .panel-tab { padding: 10px 8px; font-size: 13px; cursor: pointer; color: #64748b; border-bottom: 2px solid transparent; white-space: nowrap; margin-bottom: -1px; transition: all 0.2s; display: flex; align-items: center; gap: 4px; }
-        .panel-tab:hover { color: #3b82f6; }
-        .panel-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; background: transparent; }
-        .panel-tab-actions { display: flex; align-items: center; }
-        .panel-tab-actions .btn-danger { background: #fff; color: #ef4444; border: 1px solid #fca5a5; border-radius: 4px; padding: 4px 10px; font-size: 12px; font-weight: normal; transition: all 0.2s; }
-        .panel-tab-actions .btn-danger:hover { background: #fef2f2; }
-    }
-    
     .panel-content-area { flex: 1; overflow-y: auto; display: none; }
     .panel-content-area.active { display: block; }
 
@@ -88,7 +52,6 @@
     .log-item .time { color: #94a3b8; font-size: 11px; display: block; margin-bottom: 4px; }
     .log-item .error-report { color: #dc2626; font-weight: bold; background: #fef2f2; padding: 8px; border-radius: 4px; margin-top: 4px; display: block; }
 
-    /* 云仓库 */
     .cloud-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; padding: 15px; }
     .cloud-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; position: relative; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); min-height: 100px; }
     .cloud-card.locked { border-color: #fbbf24; background: #fffbeb; }
@@ -103,18 +66,8 @@
     .cloud-icon-btn.del:hover { background: #fee2e2; }
     .lock-badge { position: absolute; top: 4px; left: 4px; font-size: 12px; }
 
-    /* 右侧编辑器 */
     .right-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #fff; position: relative; }
     .right-header { display: flex; flex-direction: column; border-bottom: 1px solid #e2e8f0; background: #f8fafc; z-index: 10; flex-shrink: 0; }
-    .right-header-top { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; }
-    .right-header-tools { display: flex; gap: 8px; align-items: center; overflow-x: auto; padding: 0 12px 8px 12px; scrollbar-width: none; flex-wrap: nowrap; justify-content: flex-end; }
-    .right-header-tools::-webkit-scrollbar { display: none; }
-    
-    .rt-btn { padding: 5px 14px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; color: #1e293b; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
-    .rt-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
-    .rt-btn-magic { color: #7e22ce; border-color: #c084fc; background: #faf5ff; }
-
-    /* 搜索容器 */
     .search-container { display: none; gap: 8px; align-items: flex-start; width: 100%; padding: 0 10px 10px 10px; }
     .search-container.active { display: flex; }
     .search-input-wrapper { position: relative; display: flex; flex-direction: column; gap: 4px; width: 100%; }
@@ -123,23 +76,17 @@
     .search-controls button { padding: 6px 10px; font-size: 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; font-weight: 600; }
     .search-status { font-size: 12px; color: #3b82f6; font-weight: 600; padding: 0 8px; }
 
-    /* 编辑器与预览区 */
     .editor-container, .preview-container { flex: 1; display: none; position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
     .editor-container.active { display: block; }
     .preview-container.active { display: flex; flex-direction: column; }
-    
-    .CodeMirror { height: 100% !important; font-size: 13px; line-height: 1.6; }
+    .CodeMirror { height: 100% !important; font-size: 14px; line-height: 1.6; }
     .cm-error-line { background: #fee2e2 !important; border-bottom: 2px solid #ef4444; }
     
     .preview-alert { padding: 10px; background: #fef2f2; color: #b91c1c; font-size: 13px; font-weight: bold; border-bottom: 1px solid #fca5a5; display: none; align-items: center; justify-content: center; text-align:center;}
     .preview-alert.active { display: flex; animation: flash 0.5s; }
     @keyframes flash { 0% { background: #fca5a5; } 100% { background: #fef2f2; } }
 
-    .status-bar { height: 34px; background: #fff; border-top: 1px solid #fca5a5; display: flex; align-items: center; padding: 0 15px; font-size: 13px; color: #64748b; cursor: pointer; transition: 0.2s; flex-shrink: 0; z-index: 10; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid #f1f5f9; }
-    .status-bar.ok { color: #15803d; background: #f0fdf4; border-top-color: #bbf7d0; }
-    .status-bar.error { color: #b91c1c; background: #fef2f2; font-weight: 600; border-top-color: #fca5a5; }
-
-    .error-drawer { position: absolute; bottom: 34px; left: 0; right: 0; background: #fff; border-top: 1px solid #fca5a5; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); max-height: 0; overflow: hidden; transition: max-height 0.3s ease; z-index: 20; display: flex; flex-direction: column; }
+    .error-drawer { position: absolute; bottom: 32px; left: 0; right: 0; background: #fff; border-top: 1px solid #fca5a5; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); max-height: 0; overflow: hidden; transition: max-height 0.3s ease; z-index: 20; display: flex; flex-direction: column; }
     .error-drawer.open { max-height: 250px; }
     .error-drawer-header { padding: 10px; background: #fef2f2; color: #991b1b; font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #fecaca; }
     .header-left { display: flex; align-items: center; gap: 10px; }
@@ -151,13 +98,6 @@
     .error-item:hover { border-color: #fca5a5; background: #fee2e2; }
     .error-line { font-weight: bold; color: #dc2626; min-width: 50px; }
 
-    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 9999; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .toast.error { background: #ef4444; }
-    .toast.success { background: #10b981; }
-    
-    .mobile-menu-btn { display: none; padding: 6px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; color: #1e293b; white-space: nowrap; }
-
-    /* === 手机端全屏原生输入框 === */
     .mobile-editor-modal { display: none; position: fixed; inset: 10px; background: #fff; z-index: 99999; flex-direction: column; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; }
     .mobile-editor-modal.active { display: flex; }
     .modal-header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;}
@@ -165,71 +105,139 @@
     .modal-header button { padding: 6px 12px; font-size: 14px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; }
     .btn-cancel { background: #e2e8f0; color: #475569; }
     .btn-confirm { background: #3b82f6; color: #fff; }
-
     .mobile-editor-modal textarea { flex: 1; width: 100%; border: none; padding: 15px; font-size: 14px; line-height: 1.6; resize: none; outline: none; font-family: monospace; -webkit-user-select: text !important; user-select: text !important; }
 
-    /* ================= 移动端专属修复 ================= */
+    /* ==================== 电脑端专属 CSS ==================== */
+    @media (min-width: 769px) {
+        .top-bar { border-bottom: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        .config-row { padding: 8px 12px; display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; border-bottom: 1px solid #e2e8f0; width: 100%; }
+        .config-row input { padding: 5px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; outline: none; height: 30px; }
+        .config-row #ghOwner { width: 130px; flex-shrink: 0; }
+        .repo-selector-wrapper { position: relative; display: flex; align-items: center; flex: 1; min-width: 120px; height: 30px; }
+        .repo-selector-wrapper input { width: 100%; height: 100%; padding-right: 32px; }
+        .repo-dropdown-btn { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: #475569; z-index: 10; transition: background 0.2s; }
+        .config-row #ghPath { width: 140px; flex-shrink: 0; }
+        .config-row #ghToken { flex: 1; min-width: 200px; }
+        .config-row #saveConfigBtn { width: 90px; flex-shrink: 0; height: 30px; padding: 0; flex: 0 0 auto; font-size: 13px; border-radius: 4px; }
+        .main-workspace { display: flex; flex: 1; overflow: hidden; position: relative; min-height: 0; }
+        .left-panel { width: 380px; background: #fff; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; flex-shrink: 0; transition: transform 0.3s ease; }
+        .mobile-overlay { display: none !important; }
+        .mobile-menu-btn { display: none !important; }
+        .action-panel { padding: 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #f1f5f9; }
+        /* ======== 双端统一上传区域 ======== */
+        .upload-drop-area { 
+            border: 1px dashed #cbd5e1; 
+            border-radius: 8px; 
+            padding: 25px 10px; 
+            text-align: center; 
+            cursor: pointer; 
+            background: #f8fafc; 
+            position: relative; 
+            transition: all 0.2s;
+        }
+        .upload-drop-area:hover {
+            border-color: #3b82f6;
+            background: #f1f5f9;
+        }
+        
+        /* 彻底隐藏系统自带的“选择文件”按钮 */
+        .upload-drop-area input[type="file"] { 
+            position: absolute; 
+            inset: 0; 
+            opacity: 0; 
+            cursor: pointer; 
+            width: 100%;
+            height: 100%;
+            font-size: 0; 
+        }
+        
+        .upload-drop-area .upload-text { 
+            font-size: 13px; 
+            color: #64748b; 
+            pointer-events: none; 
+            line-height: 1.6; 
+        }
+        .upload-drop-area .upload-text b { 
+            color: #3b82f6; 
+            font-weight: 500; 
+            font-size: 14px;
+        }
+        /* ================================== */
+        .btn { padding: 8px 10px; font-size: 13px; font-weight: normal; }
+        .panel-tabs { display: flex; border-bottom: 1px solid #e2e8f0; align-items: stretch; justify-content: space-between; flex-shrink: 0; padding: 0 10px; }
+        .panel-tabs-left { display: flex; gap: 5px; }
+        .panel-tab { padding: 10px 8px; font-size: 13px; cursor: pointer; color: #64748b; border-bottom: 2px solid transparent; white-space: nowrap; margin-bottom: -1px; transition: all 0.2s; display: flex; align-items: center; gap: 4px; }
+        .panel-tab:hover { color: #3b82f6; }
+        .panel-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; background: transparent; }
+        .panel-tab-actions { display: flex; align-items: center; }
+        .panel-tab-actions .btn-danger { background: #fff; color: #ef4444; border: 1px solid #fca5a5; border-radius: 4px; padding: 4px 10px; font-size: 12px; font-weight: normal; transition: all 0.2s; }
+        .panel-tab-actions .btn-danger:hover { background: #fef2f2; }
+        .right-header-top { display: flex; align-items: center; padding: 6px 12px; }
+        .right-tabs { display: flex; gap: 8px; }
+        .right-header-tools { display: flex; gap: 8px; margin-left: auto; padding: 0; }
+        .rt-btn { padding: 5px 14px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; color: #1e293b; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+        .rt-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+        .rt-btn-magic { color: #7e22ce; border-color: #c084fc; background: #faf5ff; }
+        .CodeMirror { font-size: 13px; }
+        .status-bar { height: 34px; background: #fff; border-top: 1px solid #fca5a5; display: flex; align-items: center; padding: 0 15px; font-size: 13px; color: #64748b; cursor: pointer; transition: 0.2s; flex-shrink: 0; z-index: 10; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid #f1f5f9; }
+        .status-bar.ok { color: #15803d; background: #f0fdf4; border-top-color: #bbf7d0; }
+        .status-bar.error { color: #b91c1c; background: #fef2f2; font-weight: 600; border-top-color: #fca5a5; }
+    }
+
+    /* ==================== 移动端专属 CSS ==================== */
     @media (max-width: 768px) {
-              /* === 手机端头部布局强制修复 === */
-        .right-header-top {
-            display: flex !important;
-            flex-wrap: wrap !important;
-            align-items: flex-start !important;
-            padding: 10px !important;
-        }
-        .mobile-menu-btn {
-            margin-right: 8px;
-            margin-bottom: 8px;
-        }
-        .right-tabs {
-            display: flex !important;
-            gap: 8px !important;
-            flex: 1;
-            margin-bottom: 8px;
-        }
-        .right-header-tools {
-            display: flex !important;
-            gap: 8px !important;
-            margin-left: 0 !important; /* 清除电脑端的向右推 */
-            width: 100% !important;
-            justify-content: flex-start !important;
-            padding: 0 !important;
-            flex-wrap: wrap !important;
-        }
-        /* ============================== */
-        .config-row { padding: 8px 12px; gap: 8px; background: #fff; border-radius: 10px 10px 0 0; }
-        .config-row input { padding: 6px; font-size: 12px; flex: 1 1 40%; }
+        .top-bar { background: #fff; border-bottom: none; }
+        .config-row { padding: 8px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: #fff; border-radius: 10px 10px 0 0; }
+        .config-row input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; outline: none; min-width: 0; flex: 1 1 40%; }
         .config-row #ghToken { flex: 1 1 100%; }
-        .main-workspace { flex-direction: column; padding: 10px; margin: 10px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-        .left-panel { position: absolute; left: 10px; top: 10px; bottom: 10px; width: 85vw; max-width: 320px; z-index: 60; transform: translateX(-120%); box-shadow: 2px 0 15px rgba(0,0,0,0.1); border-radius: 12px; overflow: hidden; }
+        .config-row #saveConfigBtn { padding: 6px 12px; flex: 1 1 100%; height: auto; }
+        .main-workspace { display: flex; flex: 1; flex-direction: column; padding: 10px; margin: 10px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow: hidden; position: relative; min-height: 0; }
+        .left-panel { position: absolute; left: 10px; top: 10px; bottom: 10px; width: 85vw; max-width: 320px; z-index: 60; transform: translateX(-120%); box-shadow: 2px 0 15px rgba(0,0,0,0.1); border-radius: 12px; overflow: hidden; background: #fff; display: flex; flex-direction: column; transition: transform 0.3s ease; }
         .left-panel.open { transform: translateX(0); }
+        .mobile-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 50; }
         .mobile-overlay.open { display: block; }
-        .mobile-menu-btn { display: block; }
+        .mobile-menu-btn { display: block; padding: 6px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; color: #1e293b; white-space: nowrap; }
+        .action-panel { padding: 15px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #f1f5f9; }
+        .btn { padding: 10px; font-size: 14px; font-weight: 600; }
+        .panel-tabs { display: flex; border-bottom: 1px solid #e2e8f0; align-items: center; justify-content: space-between; flex-shrink: 0; padding: 0; }
+        .panel-tabs-left { display: flex; }
+        .panel-tab { padding: 10px 14px; font-size: 13px; cursor: pointer; color: #64748b; border-bottom: 2px solid transparent; white-space: nowrap; margin-bottom: 0; gap: 0; }
+        .panel-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; background: #f8fafc; }
+        .right-header { display: flex; flex-direction: column; border-bottom: 1px solid #e2e8f0; background: #f8fafc; z-index: 10; flex-shrink: 0; }
+        .right-header-top { display: flex; flex-wrap: wrap; align-items: flex-start; padding: 8px 10px; gap: 8px; }
+        .right-tabs { display: flex; gap: 8px; flex: 1; margin-bottom: 8px; }
+        .right-header-tools { display: flex; gap: 8px; width: 100%; justify-content: flex-start; padding: 0; }
+        .rt-btn { padding: 6px 12px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; color: #64748b; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex: none; }
+        .rt-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+        .search-container { display: none; width: 100%; padding: 0 10px 10px 10px; }
+        .search-container.active { display: flex; }
+        .modal-search-wrap { padding: 0; border-bottom: 1px solid #e2e8f0; display: none; background: #f1f5f9; }
+        .modal-search-wrap.active { display: block; }
+        .modal-search-wrap .search-container { padding: 10px 15px; margin: 0; display: flex; }
+        .modal-search-wrap .search-input-wrapper textarea.search-input { height: 40px; }
+        .right-panel { border-radius: 8px; overflow: hidden; flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #fff; position: relative; }
         .cloud-grid { grid-template-columns: repeat(2, 1fr); }
-        .rt-btn { padding: 6px 8px; font-size: 12px; }
+        .CodeMirror { font-size: 14px; }
         .CodeMirror-scroll { -webkit-overflow-scrolling: touch !important; overflow: scroll !important; }
         .CodeMirror-vscrollbar { width: 14px !important; display: block !important; z-index: 100 !important; background: rgba(0,0,0,0.05); }
         .CodeMirror-vscrollbar::-webkit-scrollbar { width: 12px; }
         .CodeMirror-vscrollbar::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 6px; border: 2px solid #f1f5f9; }
         .CodeMirror-vscrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         .error-drawer { z-index: 30 !important; }
-        .right-panel { border-radius: 8px; overflow: hidden; }
-        .status-bar { border-radius: 0 0 8px 8px; }
-        .modal-search-wrap { padding: 0; border-bottom: 1px solid #e2e8f0; display: none; background: #f1f5f9; }
-        .modal-search-wrap.active { display: block; }
-        .modal-search-wrap .search-container { padding: 10px 15px; margin: 0; display: flex; }
-        .modal-search-wrap .search-input-wrapper textarea.search-input { height: 40px; }
+        .status-bar { height: 32px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; align-items: center; padding: 0 10px; font-size: 12px; cursor: pointer; transition: 0.2s; flex-shrink: 0; z-index: 10; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 0 0 8px 8px; }
+        .status-bar.ok { color: #15803d; background: #f0fdf4; border-top-color: #bbf7d0; }
+        .status-bar.error { color: #b91c1c; background: #fef2f2; font-weight: 600; border-top-color: #fca5a5; }
     }
 </style>
 </head>
-  <body>
+<body>
 
 <div class="toast" id="toast"></div>
 <div class="mobile-overlay" id="mobileOverlay"></div>
 
 <iframe id="sandboxIframe" style="display:none;"></iframe>
 
-<!-- 移动端原生编辑弹窗 -->
+<!-- ==================== 移动端全屏原生编辑弹窗 ==================== -->
 <div class="mobile-editor-modal" id="mobileEditorModal">
     <div class="modal-header">
         <button class="btn-cancel" id="cancelMobileEdit">取消</button>
@@ -237,16 +245,16 @@
         <button class="btn-confirm" id="confirmMobileEdit">确定同步</button>
     </div>
     
-    <!-- ★ 移动端搜索容器 -->
+    <!-- 移动端专属搜索区 -->
     <div class="modal-search-wrap" id="modalSearchWrap">
-        <div class="search-container" id="searchContainer">
+        <div class="search-container" id="mobileSearchContainer">
             <div class="search-input-wrapper">
                 <textarea id="searchInput" class="search-input" placeholder="粘贴代码... (回车下一个)"></textarea>
                 <div class="search-controls">
-                    <span class="search-status" id="searchStatus">0 / 0</span>
-                    <button id="searchPrevBtn">⬆</button>
-                    <button id="searchNextBtn">⬇</button>
-                    <button id="searchClearBtn" style="color:#ef4444; border-color:#fca5a5;">❌</button>
+                    <span class="search-status" id="mobileSearchStatus">0 / 0</span>
+                    <button id="mobileSearchPrevBtn">⬆</button>
+                    <button id="mobileSearchNextBtn">⬇</button>
+                    <button id="mobileSearchClearBtn" style="color:#ef4444; border-color:#fca5a5;">❌</button>
                 </div>
             </div>
         </div>
@@ -255,6 +263,7 @@
     <textarea id="mobileTextarea" spellcheck="false"></textarea>
 </div>
 
+<!-- ==================== 顶部配置栏 ==================== -->
 <div class="top-bar">
     <div class="config-row">
         <input type="text" id="ghOwner" value="qiuhua-cac" placeholder="用户">
@@ -270,7 +279,9 @@
     <div class="tabs-row" id="tabsRow"></div>
 </div>
 
+<!-- ==================== 主工作区 ==================== -->
 <div class="main-workspace">
+    <!-- 左侧边栏 -->
     <div class="left-panel" id="leftPanel">
         <div class="action-panel">
             <div class="upload-drop-area" id="dropArea">
@@ -300,22 +311,23 @@
         </div>
     </div>
 
+    <!-- 右侧编辑器 -->
     <div class="right-panel">
         <div class="right-header">
-            <div class="right-header-top" style="display: flex; align-items: center;">
+            <div class="right-header-top">
                 <button class="mobile-menu-btn" id="mobileMenuBtn">🛠️ 菜单</button>
-                <div class="right-tabs" style="display: flex; gap: 8px;">
+                <div class="right-tabs">
                     <button class="rt-btn active" id="tabEditBtn">💻 代码编辑</button>
                     <button class="rt-btn" id="tabPreviewBtn">🖥️ 实时网页预览</button>
                 </div>
-                <div class="right-header-tools" style="display: flex; gap: 8px; margin-left: auto; padding: 0;">
+                <div class="right-header-tools">
                     <button class="rt-btn rt-btn-magic" id="formatBtn">✨ 自动排版</button>
                     <button class="rt-btn" id="editToggleBtn">🔓 解锁</button>
                     <button class="rt-btn" id="searchToggleBtn">🔍 搜索</button>
                 </div>
             </div>
 
-            <!-- ★ 电脑端搜索容器（完美复刻 index.txt） -->
+            <!-- 电脑端专属搜索区 -->
             <div class="search-container" id="desktopSearchContainer">
                 <div class="search-input-wrapper">
                     <textarea id="desktopSearchInput" class="search-input" placeholder="粘贴多行代码... (Enter 下一个)"></textarea>
@@ -354,7 +366,7 @@
         <div class="status-bar" id="statusBar">等待加载...</div>
     </div>
 </div>
-    <script>
+<script>
     const DEFAULT_TEXT = "// 请点击上方导入文件，或从 Git 拉取\n// 当前默认为【只读模式】，请点击右上角按钮解锁编辑\n";
     let windowsData = []; 
     let activeWindowIndex = 0;
@@ -407,19 +419,16 @@
         setupDropZone();
     });
 
-    // === 手机端弹窗联动 ===
+    // === 移动端原生弹窗逻辑 ===
     function openMobileEditor() {
         const modal = document.getElementById('mobileEditorModal');
         const textarea = document.getElementById('mobileTextarea');
         textarea.value = editor.getValue();
         
-        const sc = document.getElementById('desktopSearchContainer');
+        const mSc = document.getElementById('mobileSearchContainer');
         const wrap = document.getElementById('modalSearchWrap');
-        if (sc && sc.classList.contains('active')) {
-            wrap.classList.add('active');
-        } else {
-            wrap.classList.remove('active');
-        }
+        if (mSc && mSc.classList.contains('active')) wrap.classList.add('active');
+        else wrap.classList.remove('active');
 
         if (pendingTargetLine > 0) {
             const lines = textarea.value.split('\n');
@@ -429,14 +438,12 @@
             setTimeout(() => {
                 textarea.focus();
                 textarea.setSelectionRange(charIndex, charIndex + lineText.length);
-                const lineHeight = 22; 
-                textarea.scrollTop = (pendingTargetLine - 1) * lineHeight - 100;
+                textarea.scrollTop = (pendingTargetLine - 1) * 22 - 100;
             }, 100);
             pendingTargetLine = -1; 
         } else {
             setTimeout(() => textarea.focus(), 100);
         }
-        
         modal.classList.add('active');
     }
 
@@ -452,10 +459,7 @@
         showToast('代码已同步', 'success');
         
         const currentWin = windowsData[activeWindowIndex];
-        if (currentWin) { 
-            currentWin.content = val; 
-            savePersistedData();
-        }
+        if (currentWin) { currentWin.content = val; savePersistedData(); }
         clearSearchHighlights();
         runValidation();
     }
@@ -474,6 +478,7 @@
         const repoList = document.getElementById('repoHistoryList');
         dropdownBtn.addEventListener('click', (e) => { e.stopPropagation(); repoList.classList.toggle('active'); });
         document.addEventListener('click', (e) => { if (!repoList.contains(e.target) && e.target !== dropdownBtn) repoList.classList.remove('active'); });
+        
         document.getElementById('saveConfigBtn').addEventListener('click', saveToken);
         document.getElementById('pullBtn').addEventListener('click', pullFromGit);
         document.getElementById('pushBtn').addEventListener('click', pushToGit);
@@ -486,16 +491,14 @@
         document.getElementById('statusBar').addEventListener('click', () => toggleErrorDrawer(true));
         document.getElementById('closeDrawerBtn').addEventListener('click', () => toggleErrorDrawer(false));
         
-        // 搜索按钮逻辑：完美区分双端
+        // 核心：搜索按钮完美隔离
         document.getElementById('searchToggleBtn').addEventListener('click', () => {
             if (window.innerWidth > 768) {
                 const dSc = document.getElementById('desktopSearchContainer');
                 dSc.classList.toggle('active');
-                if (dSc.classList.contains('active')) {
-                    setTimeout(() => document.getElementById('desktopSearchInput').focus(), 50);
-                }
+                if (dSc.classList.contains('active')) setTimeout(() => document.getElementById('desktopSearchInput').focus(), 50);
             } else {
-                const mSc = document.getElementById('searchContainer');
+                const mSc = document.getElementById('mobileSearchContainer');
                 const wrap = document.getElementById('modalSearchWrap');
                 mSc.classList.toggle('active');
                 if (mSc.classList.contains('active')) wrap.classList.add('active');
@@ -507,41 +510,33 @@
             tab.addEventListener('click', () => switchPanelTab(tab.dataset.tab));
         });
         
-        // 电脑端搜索事件
+        // 电脑端搜索绑定
         const dSearch = document.getElementById('desktopSearchInput');
         if (dSearch) {
-            dSearch.addEventListener('keydown', (e) => { 
-                if (e.key === 'Enter') { e.preventDefault(); doSearch(e.shiftKey ? 'prev' : 'next'); } 
-            });
+            dSearch.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSearch(e.shiftKey ? 'prev' : 'next'); } });
             document.getElementById('desktopSearchPrevBtn').addEventListener('click', () => doSearch('prev'));
             document.getElementById('desktopSearchNextBtn').addEventListener('click', () => doSearch('next'));
             document.getElementById('desktopSearchClearBtn').addEventListener('click', clearSearch);
         }
 
-        // 移动端搜索事件
+        // 移动端搜索绑定
         const mSearch = document.getElementById('searchInput');
         if (mSearch) {
-            mSearch.addEventListener('keydown', (e) => { 
-                if (e.key === 'Enter') { e.preventDefault(); doSearch(e.shiftKey ? 'prev' : 'next'); } 
-            });
-            document.getElementById('searchPrevBtn').addEventListener('click', () => doSearch('prev'));
-            document.getElementById('searchNextBtn').addEventListener('click', () => doSearch('next'));
-            document.getElementById('searchClearBtn').addEventListener('click', clearSearch);
+            mSearch.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSearch(e.shiftKey ? 'prev' : 'next'); } });
+            document.getElementById('mobileSearchPrevBtn').addEventListener('click', () => doSearch('prev'));
+            document.getElementById('mobileSearchNextBtn').addEventListener('click', () => doSearch('next'));
+            document.getElementById('mobileSearchClearBtn').addEventListener('click', clearSearch);
         }
         
         editor.on('change', () => {
             if (isReadOnly) return; 
             const currentWin = windowsData[activeWindowIndex];
-            if (currentWin) { 
-                currentWin.content = editor.getValue(); 
-                savePersistedData();
-            }
+            if (currentWin) { currentWin.content = editor.getValue(); savePersistedData(); }
             clearTimeout(previewTimer);
             previewTimer = setTimeout(runValidation, 100); 
         });
     }
-
-    // ==== 核心搜索逻辑（完美复刻 index.txt） ====
+    // ================= 核心搜索逻辑 =================
     function doSearch(direction) {
         const isMobileModal = document.getElementById('mobileEditorModal').classList.contains('active');
         const mobileTextarea = document.getElementById('mobileTextarea');
@@ -549,7 +544,7 @@
         let query, statusEl;
         if (isMobileModal) {
             query = document.getElementById('searchInput').value;
-            statusEl = document.getElementById('searchStatus');
+            statusEl = document.getElementById('mobileSearchStatus');
         } else {
             const inputEl = document.getElementById('desktopSearchInput');
             if (!inputEl) return;
@@ -581,17 +576,13 @@
 
             if (searchMarks.length === 0) { 
                 if (statusEl) statusEl.textContent = '0 / 0'; 
-                showToast('未找到匹配内容', 'error'); 
-                return; 
+                showToast('未找到匹配内容', 'error'); return; 
             }
             currentMatchIndex = -1;
         }
         
-        if (direction === 'next') {
-            currentMatchIndex = (currentMatchIndex + 1) % searchMarks.length;
-        } else if (direction === 'prev') {
-            currentMatchIndex = (currentMatchIndex - 1 + searchMarks.length) % searchMarks.length;
-        }
+        if (direction === 'next') currentMatchIndex = (currentMatchIndex + 1) % searchMarks.length;
+        else if (direction === 'prev') currentMatchIndex = (currentMatchIndex - 1 + searchMarks.length) % searchMarks.length;
         
         if (!isMobileModal) {
             currentMarks.forEach(m => m.clear()); 
@@ -604,50 +595,33 @@
             let start = searchMarks[currentMatchIndex].index;
             mobileTextarea.focus();
             mobileTextarea.setSelectionRange(start, start + query.length);
-            
             const linesBefore = mobileTextarea.value.substring(0, start).split('\n').length - 1;
-            const lineHeight = 22; 
-            mobileTextarea.scrollTop = linesBefore * lineHeight - 100;
+            mobileTextarea.scrollTop = linesBefore * 22 - 100;
         }
-        
         if (statusEl) statusEl.textContent = `${currentMatchIndex + 1} / ${searchMarks.length}`;
     }
 
     function clearSearchHighlights() {
-        currentMarks.forEach(m => m.clear()); 
-        currentMarks = []; 
-        searchMarks = []; 
-        currentMatchIndex = -1; 
-        currentQuery = '';
-        
-        const dStatus = document.getElementById('desktopSearchStatus');
-        if (dStatus) dStatus.textContent = '0 / 0';
-        const mStatus = document.getElementById('searchStatus');
-        if (mStatus) mStatus.textContent = '0 / 0';
+        currentMarks.forEach(m => m.clear()); currentMarks = []; searchMarks = []; currentMatchIndex = -1; currentQuery = '';
+        if(document.getElementById('desktopSearchStatus')) document.getElementById('desktopSearchStatus').textContent = '0 / 0';
+        if(document.getElementById('mobileSearchStatus')) document.getElementById('mobileSearchStatus').textContent = '0 / 0';
     }
 
     function clearSearch() { 
-        const dInput = document.getElementById('desktopSearchInput');
-        if (dInput) dInput.value = '';
-        const mInput = document.getElementById('searchInput');
-        if (mInput) mInput.value = '';
+        if(document.getElementById('desktopSearchInput')) document.getElementById('desktopSearchInput').value = '';
+        if(document.getElementById('searchInput')) document.getElementById('searchInput').value = '';
         clearSearchHighlights(); 
     }
 
-    // ==== 其他辅助逻辑 ====
+    // ================= 其他核心逻辑 =================
     function toggleDrawerLock() {
         isDrawerLocked = !isDrawerLocked;
         const btn = document.getElementById('lockDrawerBtn');
-        if (isDrawerLocked) {
-            btn.textContent = '🔒 已锁定'; btn.classList.add('active'); showToast('错误详情已锁定', 'success');
-        } else {
-            btn.textContent = '📌 锁定'; btn.classList.remove('active');
-        }
+        if (isDrawerLocked) { btn.textContent = '🔒 已锁定'; btn.classList.add('active'); showToast('错误详情已锁定', 'success'); } 
+        else { btn.textContent = '📌 锁定'; btn.classList.remove('active'); }
     }
 
-    function clearErrorHighlight() {
-        if (errorHighlight) { errorHighlight.clear(); errorHighlight = null; }
-    }
+    function clearErrorHighlight() { if (errorHighlight) { errorHighlight.clear(); errorHighlight = null; } }
 
     function forceSaveBeforeUnload() {
         if (editor && windowsData[activeWindowIndex]) {
@@ -662,9 +636,7 @@
         }
     }
     window.addEventListener('beforeunload', forceSaveBeforeUnload);
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') forceSaveBeforeUnload();
-    });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') forceSaveBeforeUnload(); });
 
     function savePersistedData() {
         localStorage.setItem('rescue_windows_data', JSON.stringify(windowsData));
@@ -672,20 +644,13 @@
     }
 
     function initWindowData() {
-        return {
-            name: `窗口 ${windowsData.length + 1}`,
-            content: DEFAULT_TEXT,
-            logs: [],
-            history: [{ time: new Date().toLocaleString('zh-CN'), content: DEFAULT_TEXT }]
-        };
+        return { name: `窗口 ${windowsData.length + 1}`, content: DEFAULT_TEXT, logs: [], history: [{ time: new Date().toLocaleString('zh-CN'), content: DEFAULT_TEXT }] };
     }
 
     function checkHTMLStructure(code) {
         let errors = [];
         try {
-            let tempCode = code.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-                               .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
-                               .replace(/<!--[\s\S]*?-->/g, '');
+            let tempCode = code.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<!--[\s\S]*?-->/g, '');
             let tagStack = [];
             let tagRegex = /<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g;
             let match;
@@ -694,7 +659,6 @@
                 let tagName = match[1].toLowerCase();
                 if (['img','br','hr','input','link','meta','!doctype'].includes(tagName) || fullTag.endsWith('/>')) continue;
                 let line = code.substring(0, match.index).split('\n').length;
-                
                 if (fullTag.startsWith('</')) {
                     if (tagStack.length === 0) { errors.push({ line, msg: `多余的闭合标签 </${tagName}>` }); } 
                     else {
@@ -712,37 +676,29 @@
         const code = editor.getValue();
         const alertBar = document.getElementById('previewAlert');
         const iframe = document.getElementById('previewIframe');
-        
-        if(!code.trim()) {
-            iframe.srcdoc = ''; alertBar.classList.remove('active'); updateStatusUI(true); return;
-        }
+        if(!code.trim()) { iframe.srcdoc = ''; alertBar.classList.remove('active'); updateStatusUI(true); return; }
 
         const htmlErrors = checkHTMLStructure(code);
         if (htmlErrors.length > 0) {
             let err = htmlErrors[0];
-            alertBar.textContent = `🚨 阻断：第 ${err.line} 行 ${err.msg}`;
-            alertBar.classList.add('active');
+            alertBar.textContent = `🚨 阻断：第 ${err.line} 行 ${err.msg}`; alertBar.classList.add('active');
             iframe.srcdoc = `<html><body style="display:flex;align-items:center;justify-content:center;height:100%;background:#fef2f2;color:#b91c1c;font-family:sans-serif;font-size:14px;text-align:center;padding:20px;">🚨 <b>HTML标签残缺被阻断</b><br><br>${err.msg}<br><br>请修复代码。</body></html>`;
             updateStatusUI(false, `HTML残缺: 第 ${err.line} 行 ${err.msg}`, err.line);
             return;
         }
 
         let hasError = false; let errorMsg = ''; let errorLine = '-';
-
         sandbox.onload = function() {
             try {
                 sandbox.contentWindow.onerror = function(msg, url, line) { hasError = true; errorMsg = `运行错误: ${msg} (行 ${line})`; errorLine = line; };
                 sandbox.contentWindow.document.open(); sandbox.contentWindow.document.write(code); sandbox.contentWindow.document.close();
             } catch(e) { hasError = true; errorMsg = '严重渲染异常: ' + e.message; }
-
             setTimeout(() => {
                 if (hasError) {
                     alertBar.textContent = `🚨 阻断：${errorMsg}`; alertBar.classList.add('active');
                     iframe.srcdoc = `<html><body style="display:flex;align-items:center;justify-content:center;height:100%;background:#fef2f2;color:#b91c1c;font-family:sans-serif;font-size:14px;text-align:center;padding:20px;">🚨 <b>代码运行报错被拦截</b><br><br>${errorMsg}<br><br>请修复错误。</body></html>`;
                     updateStatusUI(false, errorMsg, errorLine); 
-                } else {
-                    alertBar.classList.remove('active'); iframe.srcdoc = code; updateStatusUI(true);
-                }
+                } else { alertBar.classList.remove('active'); iframe.srcdoc = code; updateStatusUI(true); }
             }, 50); 
         };
         sandbox.srcdoc = code;
@@ -751,7 +707,6 @@
     function updateStatusUI(isOk, errMsg = '', errLine = '-') {
         const statusBar = document.getElementById('statusBar');
         const drawerBody = document.getElementById('errorDrawerBody');
-        
         if (isOk) {
             statusBar.textContent = '✅ 静态结构与真实执行双核检测通过'; statusBar.className = 'status-bar ok';
             currentErrors = []; drawerBody.innerHTML = ''; clearErrorHighlight(); toggleErrorDrawer(false); 
@@ -759,7 +714,6 @@
             statusBar.textContent = `❌ 检测不通过！点击此处查看详情修改`; statusBar.className = 'status-bar error';
             if (currentErrors.length === 0 || currentErrors[0].msg !== errMsg) {
                 currentErrors = [{ line: errLine, msg: errMsg }]; drawerBody.innerHTML = '';
-                
                 const div = document.createElement('div'); div.className = 'error-item';
                 if (typeof errLine === 'number') { div.onclick = () => jumpToError(errLine); }
                 const s1 = document.createElement('span'); s1.className = 'error-line'; s1.textContent = errLine === '-' ? '异常' : `第 ${errLine} 行`;
@@ -782,8 +736,7 @@
 
     function toggleErrorDrawer(forceOpen = false) {
         const drawer = document.getElementById('errorDrawer');
-        if (forceOpen || !drawer.classList.contains('open')) { drawer.classList.add('open'); } 
-        else { drawer.classList.remove('open'); }
+        if (forceOpen || !drawer.classList.contains('open')) { drawer.classList.add('open'); } else { drawer.classList.remove('open'); }
     }
 
     function switchRightTab(t) { 
@@ -843,7 +796,6 @@
             if (!putResp.ok) throw new Error(putResp.status === 401 ? 'Token 无效' : '推送失败');
             
             showToast('覆盖成功！', 'success'); addHistory(windowsData[activeWindowIndex], code);
-            
             const now = new Date();
             const backupItem = { time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }), timestamp: now.getTime(), content: code, name: 'Git提交备份', locked: false };
             globalCloudBackups.unshift(backupItem); if (globalCloudBackups.length > 30) globalCloudBackups.pop(); savePersistedData(); renderCloudGrid();
@@ -851,7 +803,6 @@
             addLog(windowsData[activeWindowIndex], '推送失败', `<span class="error-report">${e.message}</span>`); showToast(e.message, 'error'); 
         } finally { document.getElementById('pushBtn').disabled = false; }
     }
-
     function setupDropZone() {
         const d = document.getElementById('dropArea'), f = document.getElementById('fileInput');
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => d.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); }));
@@ -892,18 +843,77 @@
 
     function createNewWindow() { windowsData.push(initWindowData()); savePersistedData(); switchWindow(windowsData.length - 1); }
     function closeWindow(e, index) { e.stopPropagation(); if (windowsData.length <= 1) return; if (!confirm(`关闭 ${windowsData[index].name}？`)) return; windowsData.splice(index, 1); if (activeWindowIndex >= windowsData.length) activeWindowIndex = windowsData.length - 1; savePersistedData(); renderTabs(); switchWindow(activeWindowIndex); }
-    function switchWindow(index) { activeWindowIndex = index; clearSearchHighlights(); editor.setValue(windowsData[index].content); editor.clearHistory(); isReadOnly = true; editor.setOption('readOnly', true); updateToggleBtnUI(); renderTabs(); renderLogs(); renderHistory(); renderCloudGrid(); updatePanelActionBtn(); toggleErrorDrawer(false); runValidation(); }
-    function switchPanelTab(tabName) { activePanelTab = tabName; document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active')); document.querySelectorAll('.panel-content-area').forEach(p => p.classList.remove('active')); document.querySelector(`.panel-tab[data-tab="${tabName}"]`).classList.add('active'); document.getElementById(`panel-${tabName}`).classList.add('active'); updatePanelActionBtn(); }
-    function updatePanelActionBtn() { const b = document.getElementById('panelActionBtn'); b.style.display = activePanelTab === 'logs' ? 'inline-block' : 'none'; if (activePanelTab === 'logs') b.textContent = '清空日志'; }
-    function handlePanelAction() { if (activePanelTab === 'logs') clearCurrentLogs(); }
-    function addLog(win, action, diffHtml = '') { win.logs.unshift({ time: new Date().toLocaleTimeString('zh-CN'), action: action, diff: diffHtml }); if (win.logs.length > 50) win.logs.pop(); if (windowsData[activeWindowIndex] === win) renderLogs(); }
-    function renderLogs() { const l = document.getElementById('logList'), win = windowsData[activeWindowIndex]; if (!win || win.logs.length === 0) { l.innerHTML = '<div style="color:#94a3b8; font-size:12px; text-align:center; margin-top:20px;">暂无记录</div>'; return; } l.innerHTML = win.logs.map(i => `<div class="log-item"><span class="time">${i.time} - ${i.action}</span><div class="diff">${i.diff}</div></div>`).join(''); }
-    function clearCurrentLogs() { const w = windowsData[activeWindowIndex]; if (!w) return; if (confirm('清空当前操作日志？')) { w.logs = []; savePersistedData(); renderLogs(); showToast('已清空', 'success'); } }
-    function addHistory(win, content) { win.history.unshift({ time: new Date().toLocaleString('zh-CN'), content }); if (win.history.length > 6) win.history.pop(); if (windowsData[activeWindowIndex] === win) renderHistory(); savePersistedData(); }
     
+    function switchWindow(index) { 
+        activeWindowIndex = index; 
+        clearSearchHighlights(); 
+        editor.setValue(windowsData[index].content); 
+        editor.clearHistory(); 
+        isReadOnly = true; 
+        editor.setOption('readOnly', true); 
+        updateToggleBtnUI(); 
+        renderTabs(); 
+        renderLogs(); 
+        renderHistory(); 
+        renderCloudGrid(); 
+        updatePanelActionBtn(); 
+        toggleErrorDrawer(false); 
+        runValidation(); 
+    }
+
+    function switchPanelTab(tabName) { 
+        activePanelTab = tabName; 
+        document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active')); 
+        document.querySelectorAll('.panel-content-area').forEach(p => p.classList.remove('active')); 
+        document.querySelector(`.panel-tab[data-tab="${tabName}"]`).classList.add('active'); 
+        document.getElementById(`panel-${tabName}`).classList.add('active'); 
+        updatePanelActionBtn(); 
+    }
+
+    function updatePanelActionBtn() { 
+        const b = document.getElementById('panelActionBtn'); 
+        b.style.display = activePanelTab === 'logs' ? 'inline-block' : 'none'; 
+        if (activePanelTab === 'logs') b.textContent = '清空日志'; 
+    }
+
+    function handlePanelAction() { if (activePanelTab === 'logs') clearCurrentLogs(); }
+
+    function addLog(win, action, diffHtml = '') { 
+        win.logs.unshift({ time: new Date().toLocaleTimeString('zh-CN'), action: action, diff: diffHtml }); 
+        if (win.logs.length > 50) win.logs.pop(); 
+        if (windowsData[activeWindowIndex] === win) renderLogs(); 
+    }
+
+    function renderLogs() { 
+        const l = document.getElementById('logList'), win = windowsData[activeWindowIndex]; 
+        if (!win || win.logs.length === 0) { 
+            l.innerHTML = '<div style="color:#94a3b8; font-size:12px; text-align:center; margin-top:20px;">暂无记录</div>'; 
+            return; 
+        } 
+        l.innerHTML = win.logs.map(i => `<div class="log-item"><span class="time">${i.time} - ${i.action}</span><div class="diff">${i.diff}</div></div>`).join(''); 
+    }
+
+    function clearCurrentLogs() { 
+        const w = windowsData[activeWindowIndex]; 
+        if (!w) return; 
+        if (confirm('清空当前操作日志？')) { 
+            w.logs = []; savePersistedData(); renderLogs(); showToast('已清空', 'success'); 
+        } 
+    }
+
+    function addHistory(win, content) { 
+        win.history.unshift({ time: new Date().toLocaleString('zh-CN'), content }); 
+        if (win.history.length > 6) win.history.pop(); 
+        if (windowsData[activeWindowIndex] === win) renderHistory(); 
+        savePersistedData(); 
+    }
+
     function renderHistory() { 
         const l = document.getElementById('historyList'), w = windowsData[activeWindowIndex]; 
-        if (!w || w.history.length === 0) { l.innerHTML ='<div style="color:#94a3b8; font-size:12px; text-align:center; margin-top:20px;">暂无历史快照</div>'; return; }
+        if (!w || w.history.length === 0) { 
+            l.innerHTML ='<div style="color:#94a3b8; font-size:12px; text-align:center; margin-top:20px;">暂无历史快照</div>'; 
+            return; 
+        }
         l.innerHTML = w.history.map((h,idx)=>`
             <div class="log-item">
                 <span class="time">${h.time}</span>
@@ -913,17 +923,17 @@
                 </div>
             </div>`).join('');
     }
-    
+
     function restoreHistory(idx){
         const win = windowsData[activeWindowIndex]; const h = win.history[idx];
         if(!confirm(`恢复快照：${h.time}？当前内容会被覆盖`)) return;
         editor.setValue(h.content); win.content = h.content; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); savePersistedData(); renderHistory(); runValidation(); showToast('已恢复快照','success');
     }
-    
+
     function deleteHistory(idx){
         const win = windowsData[activeWindowIndex]; win.history.splice(idx,1); savePersistedData(); renderHistory(); showToast('已删除快照','success');
     }
-    
+
     function renderCloudGrid(){
         const grid = document.getElementById('cloudGrid');
         if(!globalCloudBackups || globalCloudBackups.length ===0){
@@ -944,7 +954,7 @@
                 </div>
             </div>`).join('');
     }
-    
+
     function manualBackupCloud(){
         const code = editor.getValue();
         if(!code.trim()) return showToast('代码为空，无法备份','error');
@@ -954,34 +964,34 @@
         const backupItem = { time: now.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}), timestamp: now.getTime(), content: code, name: name.trim(), locked: false };
         globalCloudBackups.unshift(backupItem); if(globalCloudBackups.length>30) globalCloudBackups.pop(); savePersistedData(); renderCloudGrid(); showToast('✅ 云仓备份成功','success');
     }
-    
+
     function loadCloudBackup(idx){
         const item = globalCloudBackups[idx];
         if(!confirm(`载入备份【${item.name}】，覆盖当前编辑器内容？`)) return;
         editor.setValue(item.content); windowsData[activeWindowIndex].content = item.content; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); savePersistedData(); runValidation(); showToast('已载入备份','success');
     }
-    
+
     function renameCloudBackup(idx){
         const item = globalCloudBackups[idx]; const newName = prompt('修改备份名称：',item.name);
         if(!newName || newName.trim()==='') return;
         item.name = newName.trim(); savePersistedData(); renderCloudGrid();
     }
-    
+
     function delCloudBackup(idx){
         const item = globalCloudBackups[idx];
         if(item.locked) return showToast('该备份已锁定，不能删除','error');
-              if(!confirm(`确认删除备份【${item.name}】？`)) return;
+        if(!confirm(`确认删除备份【${item.name}】？`)) return;
         globalCloudBackups.splice(idx,1); savePersistedData(); renderCloudGrid(); showToast('已删除备份','success');
     }
-    
+
     function toggleLockCloudBackup(idx){
         globalCloudBackups[idx].locked = !globalCloudBackups[idx].locked; savePersistedData(); renderCloudGrid(); showToast(globalCloudBackups[idx].locked ? '已锁定':'已解锁','success');
     }
-    
+
     function getGitConfig(){
         return { owner: document.getElementById('ghOwner').value.trim(), repo: document.getElementById('ghRepo').value.trim(), path: document.getElementById('ghPath').value.trim(), token: document.getElementById('ghToken').value.trim() }
     }
-    
+
     function saveToken(){
         const cfg = getGitConfig();
         localStorage.setItem('rescue_gh_token',cfg.token); localStorage.setItem('rescue_gh_repo',cfg.repo);
@@ -990,7 +1000,7 @@
         history = history.filter(x=>x!==repoKey); history.unshift(repoKey); if(history.length>8) history.pop();
         localStorage.setItem('rescue_repo_history',JSON.stringify(history)); renderRepoHistory(); showToast('配置已保存','success');
     }
-    
+
     function renderRepoHistory(){
         const listEl = document.getElementById('repoHistoryList');
         const history = JSON.parse(localStorage.getItem('rescue_repo_history')||'[]');
@@ -1013,7 +1023,7 @@
         if (parts.length === 2) { document.getElementById('ghOwner').value = parts[0]; document.getElementById('ghRepo').value = parts[1]; } else { document.getElementById('ghRepo').value = val; }
         document.getElementById('repoHistoryList').classList.remove('active');
     }
-    
+
     async function pullFromGit(){
         try{
             const cfg = getGitConfig();
@@ -1030,17 +1040,17 @@
             addLog(windowsData[activeWindowIndex],'拉取失败',`<span class="error-report">${e.message}</span>`); showToast(e.message,'error');
         }finally{ document.getElementById('pullBtn').disabled = false; }
     }
-    
+
     function utf8ToBase64(str){ return btoa(unescape(encodeURIComponent(str))); }
     function base64ToUtf8(b64){ return decodeURIComponent(escape(atob(b64.replace(/\n/g,'')))); }
-    
+
     function showToast(msg,type='info'){
         const t = document.getElementById('toast');
         t.textContent = msg; t.className = 'toast '+type; t.style.display='block';
         clearTimeout(showToast.timer);
         showToast.timer = setTimeout(()=>{ t.style.display='none'; },2200);
     }
-    
+
     window.switchWindow = switchWindow;
     window.promptRename = promptRename;
     window.createNewWindow = createNewWindow;
