@@ -452,7 +452,16 @@
         if (savedWindows) {
             try {
                 const parsed = JSON.parse(savedWindows);
-                windowsData = (Array.isArray(parsed) && parsed.length > 0) ? parsed : [initWindowData()];
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    windowsData = parsed.map(w => ({
+                        name: w.name || '窗口',
+                        content: DEFAULT_TEXT,
+                        logs: [],
+                        history: Array.isArray(w.history) ? w.history : []
+                    }));
+                } else {
+                    windowsData = [initWindowData()];
+                }
             } catch(e) { windowsData = [initWindowData()]; }
         } else {
             windowsData = [initWindowData()];
