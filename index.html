@@ -17,51 +17,31 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
     body { background: #f1f5f9; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     
+    /* 搜索高亮 */
+    .cm-search-current { background-color: #fde047 !important; border-bottom: 2px solid #eab308 !important; box-shadow: 0 0 4px rgba(234,179,8,0.5); }
+
     /* 顶部栏 */
     .top-bar { background: #fff; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; position: relative; z-index: 100; display: flex; flex-direction: column; }
     
-    /* --- 电脑端专属顶部配置栏重写 --- */
+    /* --- 电脑端顶部配置栏 (单行填满) --- */
     @media (min-width: 769px) {
         .config-row { 
-            padding: 10px 15px; 
-            display: flex; 
-            gap: 10px; 
-            align-items: center; 
-            flex-wrap: nowrap; /* 强制不换行 */
-            border-bottom: 1px solid #f1f5f9; 
-            width: 100%; 
+            padding: 10px 15px; display: flex; gap: 10px; align-items: center; 
+            flex-wrap: nowrap; border-bottom: 1px solid #f1f5f9; width: 100%; 
         }
-        .config-row input { 
-            padding: 7px 10px; 
-            border: 1px solid #cbd5e1; 
-            border-radius: 6px; 
-            font-size: 13px; 
-            outline: none; 
-            height: 34px; 
-        }
-        /* 1. 用户框：固定宽度 */
+        .config-row input { padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; height: 34px; }
         .config-row #ghOwner { width: 140px; flex-shrink: 0; }
-        
-        /* 2. 仓库框（包含下拉按钮）：弹性填满剩余空间 */
         .repo-selector-wrapper { position: relative; display: flex; align-items: center; flex: 1; min-width: 120px; height: 34px; }
         .repo-selector-wrapper input { width: 100%; height: 100%; padding-right: 36px; }
-        
-        /* 下拉按钮：圆角浅灰正方形 */
         .repo-dropdown-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; color: #475569; z-index: 10; transition: background 0.2s; }
         .repo-dropdown-btn:hover { background: #cbd5e1; }
-        
-        /* 3. 路径框：固定宽度 */
         .config-row #ghPath { width: 160px; flex-shrink: 0; }
-        
-        /* 4. Token框：弹性填满剩余空间 */
         .config-row #ghToken { flex: 1; min-width: 200px; }
-        
-        /* 5. 保存按钮：固定宽度，靠最右侧 */
         .config-row #saveConfigBtn { width: 100px; flex-shrink: 0; height: 34px; padding: 0; flex: 0 0 auto; font-size: 14px; }
     }
+    
     .repo-history-list { position: absolute; top: 100%; left: 0; right: 0; width: 100%; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; display: none; max-height: 200px; overflow-y: auto; margin-top: 4px; }
     .repo-history-list.active { display: block; }
-    
     .repo-history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; font-size: 13px; cursor: pointer; color: #334155; border-bottom: 1px solid #f1f5f9; }
     .repo-history-item:hover { background: #f1f5f9; color: #3b82f6; }
     .del-history-btn { color: #ef4444; font-weight: bold; padding: 0 5px; border-radius: 4px; }
@@ -93,10 +73,18 @@
     .btn-danger { background: #fff; color: #ef4444; border: 1px solid #fca5a5; }
     .btn-sm { padding: 5px 10px; font-size: 12px; width: auto; }
 
-    .panel-tabs { display: flex; border-bottom: 1px solid #e2e8f0; align-items: center; justify-content: space-between; flex-shrink: 0; }
-    .panel-tabs-left { display: flex; }
-    .panel-tab { padding: 10px 14px; font-size: 13px; cursor: pointer; color: #64748b; border-bottom: 2px solid transparent; white-space: nowrap; }
-    .panel-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; background: #f8fafc; }
+    /* --- 电脑端左侧 Tab 栏 (复刻图2) --- */
+    @media (min-width: 769px) {
+        .panel-tabs { display: flex; border-bottom: 1px solid #e2e8f0; align-items: stretch; justify-content: space-between; flex-shrink: 0; padding: 0 15px; }
+        .panel-tabs-left { display: flex; gap: 10px; }
+        .panel-tab { padding: 12px 10px; font-size: 14px; cursor: pointer; color: #3b82f6; border-bottom: 3px solid transparent; white-space: nowrap; margin-bottom: -1px; transition: all 0.2s; display: flex; align-items: center; }
+        .panel-tab:hover { color: #2563eb; }
+        .panel-tab.active { color: #2563eb; border-bottom-color: #3b82f6; font-weight: 600; background: transparent; }
+        .panel-tab-actions { display: flex; align-items: center; }
+        .panel-tab-actions .btn-danger { background: #fff; color: #ef4444; border: 1px solid #fca5a5; border-radius: 6px; padding: 6px 16px; font-size: 14px; font-weight: normal; transition: all 0.2s; }
+        .panel-tab-actions .btn-danger:hover { background: #fef2f2; }
+    }
+    
     .panel-content-area { flex: 1; overflow-y: auto; display: none; }
     .panel-content-area.active { display: block; }
 
@@ -130,6 +118,7 @@
     .rt-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
     .rt-btn-magic { border-color: #c084fc; color: #7e22ce; background: #faf5ff; }
 
+    /* 搜索容器 */
     .search-container { display: none; gap: 8px; align-items: flex-start; width: 100%; padding: 0 10px 10px 10px; }
     .search-container.active { display: flex; }
     .search-input-wrapper { position: relative; display: flex; flex-direction: column; gap: 4px; width: 100%; }
@@ -138,7 +127,7 @@
     .search-controls button { padding: 6px 10px; font-size: 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; font-weight: 600; }
     .search-status { font-size: 12px; color: #3b82f6; font-weight: 600; padding: 0 8px; }
 
-    /* === 编辑器与预览区 === */
+    /* 编辑器与预览区 */
     .editor-container, .preview-container { flex: 1; display: none; position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
     .editor-container.active { display: block; }
     .preview-container.active { display: flex; flex-direction: column; }
@@ -172,19 +161,9 @@
     
     .mobile-menu-btn { display: none; padding: 6px 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; color: #1e293b; white-space: nowrap; }
 
-    /* === 手机端全屏原生输入框 === */
-    .mobile-editor-modal { 
-    display: none; 
-    position: fixed; 
-    inset: 10px; /* 用 inset 代替 top/left/right/bottom 的 0，四周缩进 10px */
-    background: #fff; 
-    z-index: 99999; 
-    flex-direction: column; 
-    border-radius: 16px; /* 大圆角 */
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2); /* 明显的悬浮阴影 */
-    overflow: hidden; /* 保证头部和输入框不溢出圆角 */
-}
-.mobile-editor-modal.active { display: flex; }
+    /* === 手机端全屏原生输入框 (原封不动) === */
+    .mobile-editor-modal { display: none; position: fixed; inset: 10px; background: #fff; z-index: 99999; flex-direction: column; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; }
+    .mobile-editor-modal.active { display: flex; }
     .modal-header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;}
     .modal-title { font-size: 15px; font-weight: 600; color: #1e293b; }
     .modal-header button { padding: 6px 12px; font-size: 14px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; }
@@ -193,68 +172,26 @@
 
     .mobile-editor-modal textarea { flex: 1; width: 100%; border: none; padding: 15px; font-size: 14px; line-height: 1.6; resize: none; outline: none; font-family: monospace; -webkit-user-select: text !important; user-select: text !important; }
 
-    /* ================= 移动端专属修复 ================= */
+    /* ================= 移动端专属修复 (原封不动) ================= */
     @media (max-width: 768px) {
-        .config-row { 
-    padding: 8px 12px; /* 稍微增加一点内边距让它不局促 */
-    gap: 8px; 
-    background: #fff; 
-    border-radius: 10px 10px 0 0; /* 顶部圆角，和下面的工作区连起来 */
-}
+        .config-row { padding: 8px 12px; gap: 8px; background: #fff; border-radius: 10px 10px 0 0; }
         .config-row input { padding: 6px; font-size: 12px; flex: 1 1 40%; }
         .config-row #ghToken { flex: 1 1 100%; }
-        
-        .main-workspace { 
-    flex-direction: column; 
-    padding: 10px; /* 四周留白 */
-    margin: 10px; /* 整体往中间缩 */
-    background: #fff; /* 给内容区加白底 */
-    border-radius: 12px; /* 圆角好看 */
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05); /* 微阴影，显得浮在背景上 */
-    border: 1px solid #e2e8f0; /* 边框 */
-}
-        .left-panel { 
-    position: absolute; 
-    left: 10px; /* 留出左边距 */
-    top: 10px; 
-    bottom: 10px; 
-    width: 85vw; 
-    max-width: 320px; 
-    z-index: 60; 
-    transform: translateX(-120%); /* 隐藏时多移出一点，避免露边 */
-    box-shadow: 2px 0 15px rgba(0,0,0,0.1); 
-    border-radius: 12px; /* 抽屉加圆角 */
-    overflow: hidden; /* 防止内部滚动条破坏圆角 */
-}
-.left-panel.open { 
-    transform: translateX(0); 
-}
+        .main-workspace { flex-direction: column; padding: 10px; margin: 10px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .left-panel { position: absolute; left: 10px; top: 10px; bottom: 10px; width: 85vw; max-width: 320px; z-index: 60; transform: translateX(-120%); box-shadow: 2px 0 15px rgba(0,0,0,0.1); border-radius: 12px; overflow: hidden; }
         .left-panel.open { transform: translateX(0); }
         .mobile-overlay.open { display: block; }
         .mobile-menu-btn { display: block; }
         .cloud-grid { grid-template-columns: repeat(2, 1fr); }
-        
         .rt-btn { padding: 6px 8px; font-size: 12px; }
-        
         .CodeMirror-scroll { -webkit-overflow-scrolling: touch !important; overflow: scroll !important; }
         .CodeMirror-vscrollbar { width: 14px !important; display: block !important; z-index: 100 !important; background: rgba(0,0,0,0.05); }
         .CodeMirror-vscrollbar::-webkit-scrollbar { width: 12px; }
         .CodeMirror-vscrollbar::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 6px; border: 2px solid #f1f5f9; }
         .CodeMirror-vscrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-        
         .error-drawer { z-index: 30 !important; }
-        /* 右侧编辑器面板 */
-.right-panel { 
-    border-radius: 8px; 
-    overflow: hidden; 
-}
-
-/* 底部状态栏 */
-.status-bar { 
-    border-radius: 0 0 8px 8px; 
-}
-
-        /* 移动端弹窗内的搜索框样式 */
+        .right-panel { border-radius: 8px; overflow: hidden; }
+        .status-bar { border-radius: 0 0 8px 8px; }
         .modal-search-wrap { padding: 0; border-bottom: 1px solid #e2e8f0; display: none; background: #f1f5f9; }
         .modal-search-wrap.active { display: block; }
         .modal-search-wrap .search-container { padding: 10px 15px; margin: 0; display: flex; }
@@ -262,7 +199,7 @@
     }
 </style>
 </head>
-<body>
+  <body>
 
 <div class="toast" id="toast"></div>
 <div class="mobile-overlay" id="mobileOverlay"></div>
@@ -277,7 +214,7 @@
         <button class="btn-confirm" id="confirmMobileEdit">确定同步</button>
     </div>
     
-    <!-- ★ 关键改造：将搜索容器包裹在此，在移动端时直接物理搬入到这里 -->
+    <!-- ★ 移动端搜索容器 -->
     <div class="modal-search-wrap" id="modalSearchWrap">
         <div class="search-container" id="searchContainer">
             <div class="search-input-wrapper">
@@ -323,12 +260,12 @@
         
         <div class="panel-tabs">
             <div class="panel-tabs-left">
-                <div class="panel-tab active" data-tab="logs">📝 状态</div>
-                <div class="panel-tab" data-tab="history">📜 历史</div>
-                <div class="panel-tab" data-tab="cloud">🗄️ 云仓</div>
+                <div class="panel-tab active" data-tab="logs">📝 操作与状态</div>
+                <div class="panel-tab" data-tab="history">📜 历史修改</div>
+                <div class="panel-tab" data-tab="cloud">🗄️ 云仓库</div>
             </div>
             <div class="panel-tab-actions">
-                <button class="btn btn-danger btn-sm" id="panelActionBtn" style="display:none;">清空</button>
+                <button class="btn btn-danger btn-sm" id="panelActionBtn" style="display:none;">清空日志</button>
             </div>
         </div>
         
@@ -355,8 +292,18 @@
                 <button class="rt-btn" id="searchToggleBtn">🔍 搜索</button>
             </div>
 
-            <!-- ★ 电脑端的搜索容器（手机端隐藏） -->
-            <div class="search-container" id="desktopSearchContainer"></div>
+            <!-- ★ 电脑端搜索容器（完美复刻 index.txt） -->
+            <div class="search-container" id="desktopSearchContainer">
+                <div class="search-input-wrapper">
+                    <textarea id="desktopSearchInput" class="search-input" placeholder="粘贴多行代码... (Enter 下一个)"></textarea>
+                    <div class="search-controls">
+                        <span class="search-status" id="desktopSearchStatus">0 / 0</span>
+                        <button id="desktopSearchPrevBtn">⬆</button>
+                        <button id="desktopSearchNextBtn">⬇</button>
+                        <button id="desktopSearchClearBtn" style="color:#ef4444; border-color:#fca5a5;">❌</button>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <div class="editor-container active" id="editorArea">
@@ -384,8 +331,7 @@
         <div class="status-bar" id="statusBar">等待加载...</div>
     </div>
 </div>
-
-<script>
+    <script>
     const DEFAULT_TEXT = "// 请点击上方导入文件，或从 Git 拉取\n// 当前默认为【只读模式】，请点击右上角按钮解锁编辑\n";
     let windowsData = []; 
     let activeWindowIndex = 0;
@@ -438,16 +384,15 @@
         setupDropZone();
     });
 
-    // === 智能挂载搜索框：保证手机端弹窗里能看得见 ===
+    // === 手机端弹窗联动 ===
     function openMobileEditor() {
         const modal = document.getElementById('mobileEditorModal');
         const textarea = document.getElementById('mobileTextarea');
         textarea.value = editor.getValue();
         
-        // 弹窗打开时，如果搜索面板展开，展示出来
-        const sc = document.getElementById('searchContainer');
+        const sc = document.getElementById('desktopSearchContainer');
         const wrap = document.getElementById('modalSearchWrap');
-        if (sc.classList.contains('active')) {
+        if (sc && sc.classList.contains('active')) {
             wrap.classList.add('active');
         } else {
             wrap.classList.remove('active');
@@ -509,7 +454,7 @@
         document.getElementById('saveConfigBtn').addEventListener('click', saveToken);
         document.getElementById('pullBtn').addEventListener('click', pullFromGit);
         document.getElementById('pushBtn').addEventListener('click', pushToGit);
-              document.getElementById('manualBackupBtn').addEventListener('click', manualBackupCloud);
+        document.getElementById('manualBackupBtn').addEventListener('click', manualBackupCloud);
         document.getElementById('panelActionBtn').addEventListener('click', handlePanelAction);
         document.getElementById('tabEditBtn').addEventListener('click', () => switchRightTab('edit'));
         document.getElementById('tabPreviewBtn').addEventListener('click', () => switchRightTab('preview'));
@@ -518,15 +463,20 @@
         document.getElementById('statusBar').addEventListener('click', () => toggleErrorDrawer(true));
         document.getElementById('closeDrawerBtn').addEventListener('click', () => toggleErrorDrawer(false));
         
-        // 搜索按钮逻辑（完美支持弹窗展开）
+        // 搜索按钮逻辑：完美区分双端
         document.getElementById('searchToggleBtn').addEventListener('click', () => {
-            const sc = document.getElementById('searchContainer');
-            const wrap = document.getElementById('modalSearchWrap');
-            sc.classList.toggle('active');
-            if (sc.classList.contains('active')) {
-                wrap.classList.add('active');
+            if (window.innerWidth > 768) {
+                const dSc = document.getElementById('desktopSearchContainer');
+                dSc.classList.toggle('active');
+                if (dSc.classList.contains('active')) {
+                    setTimeout(() => document.getElementById('desktopSearchInput').focus(), 50);
+                }
             } else {
-                wrap.classList.remove('active');
+                const mSc = document.getElementById('searchContainer');
+                const wrap = document.getElementById('modalSearchWrap');
+                mSc.classList.toggle('active');
+                if (mSc.classList.contains('active')) wrap.classList.add('active');
+                else wrap.classList.remove('active');
             }
         });
 
@@ -534,13 +484,27 @@
             tab.addEventListener('click', () => switchPanelTab(tab.dataset.tab));
         });
         
-        const searchInput = document.getElementById('searchInput');
-        searchInput.addEventListener('keydown', (e) => { 
-            if (e.key === 'Enter') { e.preventDefault(); doSearch(e.shiftKey ? 'prev' : 'next'); } 
-        });
-        document.getElementById('searchPrevBtn').addEventListener('click', () => doSearch('prev'));
-        document.getElementById('searchNextBtn').addEventListener('click', () => doSearch('next'));
-        document.getElementById('searchClearBtn').addEventListener('click', clearSearch);
+        // 电脑端搜索事件
+        const dSearch = document.getElementById('desktopSearchInput');
+        if (dSearch) {
+            dSearch.addEventListener('keydown', (e) => { 
+                if (e.key === 'Enter') { e.preventDefault(); doSearch(e.shiftKey ? 'prev' : 'next'); } 
+            });
+            document.getElementById('desktopSearchPrevBtn').addEventListener('click', () => doSearch('prev'));
+            document.getElementById('desktopSearchNextBtn').addEventListener('click', () => doSearch('next'));
+            document.getElementById('desktopSearchClearBtn').addEventListener('click', clearSearch);
+        }
+
+        // 移动端搜索事件
+        const mSearch = document.getElementById('searchInput');
+        if (mSearch) {
+            mSearch.addEventListener('keydown', (e) => { 
+                if (e.key === 'Enter') { e.preventDefault(); doSearch(e.shiftKey ? 'prev' : 'next'); } 
+            });
+            document.getElementById('searchPrevBtn').addEventListener('click', () => doSearch('prev'));
+            document.getElementById('searchNextBtn').addEventListener('click', () => doSearch('next'));
+            document.getElementById('searchClearBtn').addEventListener('click', clearSearch);
+        }
         
         editor.on('change', () => {
             if (isReadOnly) return; 
@@ -554,20 +518,31 @@
         });
     }
 
-    // ★ 原封不动的搜索逻辑：完美兼容电脑端 CodeMirror 和移动端 textarea
+    // ==== 核心搜索逻辑（完美复刻 index.txt） ====
     function doSearch(direction) {
-        const query = document.getElementById('searchInput').value;
-        if (!query) { clearSearch(); return; }
-        
         const isMobileModal = document.getElementById('mobileEditorModal').classList.contains('active');
         const mobileTextarea = document.getElementById('mobileTextarea');
+
+        let query, statusEl;
+        if (isMobileModal) {
+            query = document.getElementById('searchInput').value;
+            statusEl = document.getElementById('searchStatus');
+        } else {
+            const inputEl = document.getElementById('desktopSearchInput');
+            if (!inputEl) return;
+            query = inputEl.value;
+            statusEl = document.getElementById('desktopSearchStatus');
+        }
+
+        if (!query) { clearSearch(); return; }
 
         if (query !== currentQuery) {
             clearSearchHighlights(); 
             currentQuery = query;
             
             if (!isMobileModal) {
-                const docText = editor.getValue(); let startIndex = 0;
+                const docText = editor.getValue(); 
+                let startIndex = 0;
                 while ((startIndex = docText.indexOf(query, startIndex)) !== -1) {
                     searchMarks.push({ from: editor.posFromIndex(startIndex), to: editor.posFromIndex(startIndex + query.length) });
                     startIndex += query.length;
@@ -582,17 +557,22 @@
             }
 
             if (searchMarks.length === 0) { 
-                document.getElementById('searchStatus').textContent = '0 / 0'; 
+                if (statusEl) statusEl.textContent = '0 / 0'; 
                 showToast('未找到匹配内容', 'error'); 
                 return; 
             }
             currentMatchIndex = -1;
         }
         
-        currentMatchIndex = direction === 'next' ? (currentMatchIndex + 1) % searchMarks.length : (currentMatchIndex - 1 + searchMarks.length) % searchMarks.length;
+        if (direction === 'next') {
+            currentMatchIndex = (currentMatchIndex + 1) % searchMarks.length;
+        } else if (direction === 'prev') {
+            currentMatchIndex = (currentMatchIndex - 1 + searchMarks.length) % searchMarks.length;
+        }
         
         if (!isMobileModal) {
-            currentMarks.forEach(m => m.clear()); currentMarks = [];
+            currentMarks.forEach(m => m.clear()); 
+            currentMarks = [];
             const currentCoord = searchMarks[currentMatchIndex];
             currentMarks.push(editor.markText(currentCoord.from, currentCoord.to, { className: 'cm-search-current' }));
             editor.scrollIntoView({ line: currentCoord.from.line, ch: currentCoord.from.ch }, 200);
@@ -607,19 +587,31 @@
             mobileTextarea.scrollTop = linesBefore * lineHeight - 100;
         }
         
-        document.getElementById('searchStatus').textContent = `${currentMatchIndex + 1} / ${searchMarks.length}`;
+        if (statusEl) statusEl.textContent = `${currentMatchIndex + 1} / ${searchMarks.length}`;
     }
 
     function clearSearchHighlights() {
-        currentMarks.forEach(m => m.clear()); currentMarks = []; searchMarks = []; currentMatchIndex = -1; currentQuery = '';
-        document.getElementById('searchStatus').textContent = '0 / 0';
+        currentMarks.forEach(m => m.clear()); 
+        currentMarks = []; 
+        searchMarks = []; 
+        currentMatchIndex = -1; 
+        currentQuery = '';
+        
+        const dStatus = document.getElementById('desktopSearchStatus');
+        if (dStatus) dStatus.textContent = '0 / 0';
+        const mStatus = document.getElementById('searchStatus');
+        if (mStatus) mStatus.textContent = '0 / 0';
     }
 
     function clearSearch() { 
-        document.getElementById('searchInput').value = ''; 
+        const dInput = document.getElementById('desktopSearchInput');
+        if (dInput) dInput.value = '';
+        const mInput = document.getElementById('searchInput');
+        if (mInput) mInput.value = '';
         clearSearchHighlights(); 
     }
 
+    // ==== 其他辅助逻辑 ====
     function toggleDrawerLock() {
         isDrawerLocked = !isDrawerLocked;
         const btn = document.getElementById('lockDrawerBtn');
@@ -879,7 +871,7 @@
     function closeWindow(e, index) { e.stopPropagation(); if (windowsData.length <= 1) return; if (!confirm(`关闭 ${windowsData[index].name}？`)) return; windowsData.splice(index, 1); if (activeWindowIndex >= windowsData.length) activeWindowIndex = windowsData.length - 1; savePersistedData(); renderTabs(); switchWindow(activeWindowIndex); }
     function switchWindow(index) { activeWindowIndex = index; clearSearchHighlights(); editor.setValue(windowsData[index].content); editor.clearHistory(); isReadOnly = true; editor.setOption('readOnly', true); updateToggleBtnUI(); renderTabs(); renderLogs(); renderHistory(); renderCloudGrid(); updatePanelActionBtn(); toggleErrorDrawer(false); runValidation(); }
     function switchPanelTab(tabName) { activePanelTab = tabName; document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active')); document.querySelectorAll('.panel-content-area').forEach(p => p.classList.remove('active')); document.querySelector(`.panel-tab[data-tab="${tabName}"]`).classList.add('active'); document.getElementById(`panel-${tabName}`).classList.add('active'); updatePanelActionBtn(); }
-    function updatePanelActionBtn() { const b = document.getElementById('panelActionBtn'); b.style.display = activePanelTab === 'logs' ? 'inline-block' : 'none'; if (activePanelTab === 'logs') b.textContent = '清空'; }
+    function updatePanelActionBtn() { const b = document.getElementById('panelActionBtn'); b.style.display = activePanelTab === 'logs' ? 'inline-block' : 'none'; if (activePanelTab === 'logs') b.textContent = '清空日志'; }
     function handlePanelAction() { if (activePanelTab === 'logs') clearCurrentLogs(); }
     function addLog(win, action, diffHtml = '') { win.logs.unshift({ time: new Date().toLocaleTimeString('zh-CN'), action: action, diff: diffHtml }); if (win.logs.length > 50) win.logs.pop(); if (windowsData[activeWindowIndex] === win) renderLogs(); }
     function renderLogs() { const l = document.getElementById('logList'), win = windowsData[activeWindowIndex]; if (!win || win.logs.length === 0) { l.innerHTML = '<div style="color:#94a3b8; font-size:12px; text-align:center; margin-top:20px;">暂无记录</div>'; return; } l.innerHTML = win.logs.map(i => `<div class="log-item"><span class="time">${i.time} - ${i.action}</span><div class="diff">${i.diff}</div></div>`).join(''); }
@@ -955,7 +947,7 @@
     function delCloudBackup(idx){
         const item = globalCloudBackups[idx];
         if(item.locked) return showToast('该备份已锁定，不能删除','error');
-        if(!confirm(`确认删除备份【${item.name}】？`)) return;
+              if(!confirm(`确认删除备份【${item.name}】？`)) return;
         globalCloudBackups.splice(idx,1); savePersistedData(); renderCloudGrid(); showToast('已删除备份','success');
     }
     
@@ -1040,4 +1032,4 @@
     window.deleteRepoHistory = deleteRepoHistory;
 </script>
 </body>
-</html>  
+</html>
