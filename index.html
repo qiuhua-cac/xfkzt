@@ -432,6 +432,7 @@
     let autoHistoryTimer = null;
     let lastHistoryCount = 0;
     let batchMode = false;
+    let isCloudSyncing = false; // 跨设备云仓同步锁
     
     let previewTimer = null; 
     let isDrawerLocked = false; 
@@ -506,6 +507,9 @@
         switchWindow(0);
         setupDropZone();
         startAutoHistory();
+        
+        // 启动时拉取一次远程云仓库
+        setTimeout(() => { pullCloudFromGit(); }, 1000);
     });
 
     // === 移动端原生弹窗逻辑 ===
@@ -730,11 +734,76 @@
         }
     }
     window.addEventListener('beforeunload', forceSaveBeforeUnload);
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') forceSaveBeforeUnload(); });
+    document.addEventListener('visibilitychange', () => { 
+        if (document.visibilityState === 'hidden') {
+            forceSaveBeforeUnload(); 
+        } else if (document.visibilityState === 'visible') {
+            // 回到页面时，静默拉取云端最新的云仓库
+            pullCloudFromGit();
+        }
+    });
 
     function savePersistedData() {
         localStorage.setItem('rescue_windows_data', JSON.stringify(windowsData));
         localStorage.setItem('rescue_cloud_backups', JSON.stringify(globalCloudBackups));
+    }
+
+    // === 跨设备同步云仓库核心逻辑 ===
+    async function pushCloudToGit() {
+        const cfg = getGitConfig();
+        if (!cfg.owner || !cfg.repo || !cfg.token || isCloudSyncing) return;
+        isCloudSyncing = true;
+        try {
+            const apiBase = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/.gitconsole_backups.json`;
+            const headers = { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
+            
+            const getResp = await fetch(apiBase, { method: 'GET', headers });
+            let sha = null;
+            if (getResp.ok) { const d = await getResp.json(); sha = d.sha; } 
+            else if (getResp.status !== 404) throw new Error('获取云配置SHA失败');
+            
+            const body = { 
+                message: `☁️ 云仓自动同步: ${new Date().toLocaleString('zh-CN')}`, 
+                content: utf8ToBase64(JSON.stringify(globalCloudBackups)), 
+                branch: 'main' 
+            };
+            if (sha) body.sha = sha;
+            
+            const putResp = await fetch(apiBase, { method: 'PUT', headers, body: JSON.stringify(body) });
+            if (!putResp.ok) throw new Error('云仓推送失败');
+            console.log('✅ 云仓已同步至远程');
+        } catch (e) {
+            console.warn('⚠️ 云仓自动同步失败:', e.message);
+        } finally {
+            isCloudSyncing = false;
+        }
+    }
+
+    async function pullCloudFromGit() {
+        const cfg = getGitConfig();
+        if (!cfg.owner || !cfg.repo || !cfg.token || isCloudSyncing) return;
+        isCloudSyncing = true;
+        try {
+            const apiBase = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/.gitconsole_backups.json`;
+            const headers = { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' };
+            const res = await fetch(apiBase, { headers });
+            if (!res.ok) { isCloudSyncing = false; return; }
+            
+            const json = await res.json();
+            const text = base64ToUtf8(json.content);
+            const remoteBackups = JSON.parse(text);
+            
+            if (JSON.stringify(remoteBackups) !== JSON.stringify(globalCloudBackups)) {
+                globalCloudBackups = remoteBackups;
+                localStorage.setItem('rescue_cloud_backups', JSON.stringify(globalCloudBackups));
+                renderCloudGrid();
+                showToast('☁️ 已同步最新云仓库', 'success');
+            }
+        } catch (e) {
+            console.warn('⚠️ 云仓拉取失败:', e.message);
+        } finally {
+            isCloudSyncing = false;
+        }
     }
 
     function initWindowData() {
@@ -1182,7 +1251,7 @@
         if(!name) return;
         const now = new Date();
         const backupItem = { time: now.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}), timestamp: now.getTime(), content: code, name: name.trim(), locked: false };
-        globalCloudBackups.unshift(backupItem); if(globalCloudBackups.length>30) globalCloudBackups.pop(); savePersistedData(); renderCloudGrid(); showToast('✅ 云仓备份成功','success');
+        globalCloudBackups.unshift(backupItem); if(globalCloudBackups.length>30) globalCloudBackups.pop(); savePersistedData(); renderCloudGrid(); pushCloudToGit(); showToast('✅ 云仓备份成功','success');
     }
 
     function loadCloudBackup(idx){
@@ -1194,18 +1263,18 @@
     function renameCloudBackup(idx){
         const item = globalCloudBackups[idx]; const newName = prompt('修改备份名称：',item.name);
         if(!newName || newName.trim()==='') return;
-        item.name = newName.trim(); savePersistedData(); renderCloudGrid();
+        item.name = newName.trim(); savePersistedData(); renderCloudGrid(); pushCloudToGit();
     }
 
     function delCloudBackup(idx){
         const item = globalCloudBackups[idx];
         if(item.locked) return showToast('该备份已锁定，不能删除','error');
         if(!confirm(`确认删除备份【${item.name}】？`)) return;
-        globalCloudBackups.splice(idx,1); savePersistedData(); renderCloudGrid(); showToast('已删除备份','success');
+        globalCloudBackups.splice(idx,1); savePersistedData(); renderCloudGrid(); pushCloudToGit(); showToast('已删除备份','success');
     }
 
     function toggleLockCloudBackup(idx){
-        globalCloudBackups[idx].locked = !globalCloudBackups[idx].locked; savePersistedData(); renderCloudGrid(); showToast(globalCloudBackups[idx].locked ? '已锁定':'已解锁','success');
+        globalCloudBackups[idx].locked = !globalCloudBackups[idx].locked; savePersistedData(); renderCloudGrid(); pushCloudToGit(); showToast(globalCloudBackups[idx].locked ? '已锁定':'已解锁','success');
     }
 
     function getGitConfig(){
