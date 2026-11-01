@@ -483,6 +483,24 @@
         document.getElementById('confirmMobileEdit').addEventListener('click', saveMobileEditor);
         document.getElementById('lockDrawerBtn').addEventListener('click', toggleDrawerLock);
 
+        // 双端绝对隔离：只在移动端动态添加保存历史按钮，电脑端 DOM 永远不知道它的存在
+        if (window.innerWidth <= 768) {
+            const mobileBtn = document.createElement('button');
+            mobileBtn.className = 'btn btn-secondary';
+            mobileBtn.textContent = '💾 保存历史';
+            mobileBtn.addEventListener('click', () => {
+                document.getElementById('leftPanel').classList.remove('open');
+                document.getElementById('mobileOverlay').classList.remove('open');
+                manualSaveHistory();
+            });
+            // 插入到“拉取”按钮的前面
+            const pullBtn = document.getElementById('pullBtn');
+            pullBtn.parentNode.insertBefore(mobileBtn, pullBtn);
+            
+            // 移动端顶部隐藏原本的保存按钮
+            document.getElementById('manualSaveHistoryBtn').style.display = 'none';
+        }
+
         bindEvents();
         renderTabs();
         switchWindow(0);
