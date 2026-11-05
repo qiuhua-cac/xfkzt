@@ -982,21 +982,15 @@
 
     async function fetchSQLProtectData() {
         try {
-            // 强制加上 no-cors 之外的严格模式，并在请求头里明确告知浏览器这是跨域 JSON 请求
+            // 核心修复：去掉所有的 headers，只保留 cache: 'no-store'
+            // 这样浏览器就不会触发任何 CORS 预检拦截
             const res = await fetch(API_BASE + '/api/get-all-data?t=' + Date.now(), {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Cache-Control': 'no-cache'
-                },
-                mode: 'cors', // 强制跨域模式
                 cache: 'no-store'
             });
             
             if (!res.ok) throw new Error('服务器状态码: ' + res.status);
             const json = await res.json();
             
-            // 只要服务器返回了 json.success 为 true，就说明接口是通的
             if (json.success && json.data && json.data['zk_store']) {
                 let data = typeof json.data['zk_store'] === 'string' ? JSON.parse(json.data['zk_store']) : json.data['zk_store'];
                 return JSON.parse(JSON.stringify(Array.isArray(data) ? data : [data])); 
@@ -1903,13 +1897,19 @@
                 return;
             }
             
-            // 核心修复：只保存当前激活窗口且内容有变动时，再保存
+            // ★ 终极解决：根本不再往本地存历史，杜绝爆仓报错
+            // 如果要保存，就单纯在内存里留一下，不写 localStorage
+            
             const win = windowsData[activeWindowIndex];
             if (win && editor && editor.getValue() !== win.content) {
-                addHistory(win, editor.getValue());
+                // 只改内存，不触发本地存储
+                win.content = editor.getValue();
+                win.history.unshift(makeHistoryEntry(win.name, win.content, win.logs));
+                if (win.history.length > 20) win.history.pop(); // 内存只留 20 条防爆
+                renderHistory();
             }
             
-            // 强行清理掉 code_editor_global_history 这个引发爆仓的历史记录键
+            // 顺手把引发报错的垃圾键给删了
             try {
                 localStorage.removeItem('code_editor_global_history');
             } catch (e) {}
