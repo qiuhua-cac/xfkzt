@@ -855,9 +855,16 @@
             previewTimer = setTimeout(runValidation, 100); 
         });
 
-        // ===== SQL 保护仓事件绑定 =====
-        document.getElementById('dbProtectBtn').addEventListener('click', openSQLProtectModal);
-        document.getElementById('spCloseBtn').addEventListener('click', () => {
+        // ===== SQL 保护仓事件绑定（全量重写，防自动保存） =====
+        document.getElementById('dbProtectBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            openSQLProtectModal();
+        });
+        document.getElementById('spCloseBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.isEditingNew = false;
+            currentSqlData = null;
             document.getElementById('sqlProtectModal').classList.remove('active');
         });
         document.getElementById('spUploadBtn').addEventListener('click', uploadToSQLProtect);
@@ -880,8 +887,14 @@
         });
         document.getElementById('spSaveConfigBtn').addEventListener('click', saveSQLConfig);
         
-        // 返回文件列表
-        document.getElementById('spBackBtn').addEventListener('click', () => {
+        // 🔥 修复返回按钮：只作为跳转，绝不保存
+        document.getElementById('spBackBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (window.isEditingNew) {
+                currentSqlData = null;
+                window.isEditingNew = false;
+            }
             renderSQLFileList();
         });
         
@@ -905,8 +918,8 @@
     }
 
     // ==================== SQL 保护仓全新逻辑 ====================
-    let currentSqlFiles = []; // 存放所有配置文件
-    let currentSqlData = null; // 当前选中查看的文件
+    let currentSqlFiles = []; 
+    let currentSqlData = null; 
     const API_BASE = 'https://qhtvyy.com:3000';
 
     async function fetchSQLProtectData() {
@@ -915,16 +928,14 @@
             const json = await res.json();
             if (json.success && json.data && json.data['zk_store']) {
                 let data = typeof json.data['zk_store'] === 'string' ? JSON.parse(json.data['zk_store']) : json.data['zk_store'];
-                return Array.isArray(data) ? data : [data]; // 兼容旧数据
+                return JSON.parse(JSON.stringify(Array.isArray(data) ? data : [data])); 
             }
         } catch (e) { console.warn('获取保护仓数据失败', e); }
         return [];
     }
 
-    // 静默同步
     async function initSQLProtectData() {
         currentSqlFiles = await fetchSQLProtectData();
-        console.log('✅ 已静默同步保护仓文件列表');
     }
     setTimeout(initSQLProtectData, 1500);
 
@@ -934,7 +945,6 @@
         renderSQLFileList();
     }
 
-    // 渲染文件列表
     function renderSQLFileList() {
         document.getElementById('spDetailView').style.display = 'none';
         document.getElementById('spDetailFooter').style.display = 'none';
@@ -959,9 +969,9 @@
         }
     }
 
-    // 打开某个文件的详情
     function openSQLFileDetail(index) {
         currentSqlData = currentSqlFiles[index];
+        window.isEditingNew = false;
         if (!currentSqlData) return;
         
         document.getElementById('spFileListView').style.display = 'none';
@@ -1003,38 +1013,32 @@
         } catch (e) { console.warn('SQL保存失败', e); }
     }
 
-    // 点击设置按钮
+    // 点击设置按钮：仅打开纯草稿页面，不操作任何数据库
     document.getElementById('spSettingsBtn').addEventListener('click', () => {
         const cfg = getGitConfig();
         const repoKey = cfg.repo ? `${cfg.owner}/${cfg.repo}` : '未配置';
         
         if (!cfg.repo) return showToast('请先在上方配置你的仓库', 'error');
-        
-        // 检查是否已经配置过
         if (currentSqlFiles.some(f => f.repo === repoKey)) {
             return showToast('该仓库已存在保护仓配置，不可重复创建', 'error');
         }
 
-        const newConfig = {
+        currentSqlData = {
             name: `代码保护_${cfg.repo}`,
             repo: repoKey,
-            purpose: '请填写用途说明',
+            purpose: '',
             content: '',
-            locked: false, // 新建时默认未锁，方便填写
+            locked: false,
             uploadTime: '暂无',
             downloadTime: '暂无',
             opCount: 0
         };
-        
-        currentSqlFiles.push(newConfig);
-        saveSQLProtectData();
-        currentSqlData = newConfig;
-        
+        window.isEditingNew = true; 
+
         document.getElementById('spFileListView').style.display = 'none';
         document.getElementById('spDetailView').style.display = 'flex';
         document.getElementById('spDetailFooter').style.display = 'flex';
         
-        // 解锁并允许填写
         document.getElementById('spName').disabled = false;
         document.getElementById('spPurpose').disabled = false;
         document.getElementById('spSaveConfigBtn').style.display = 'block';
@@ -1044,12 +1048,15 @@
         document.getElementById('spStatus').textContent = '🔓 配置中...';
         document.getElementById('spStatus').style.color = '#f59e0b';
         
-        renderSQLDetailUI();
-        document.getElementById('spName').disabled = false;
-        document.getElementById('spPurpose').disabled = false;
-        document.getElementById('spSaveConfigBtn').style.display = 'block';
+        document.getElementById('spName').value = currentSqlData.name;
+        document.getElementById('spPurpose').value = currentSqlData.purpose;
+        document.getElementById('spRepo').textContent = currentSqlData.repo;
+        document.getElementById('spOpCount').textContent = currentSqlData.opCount;
+        document.getElementById('spUploadTime').textContent = currentSqlData.uploadTime;
+        document.getElementById('spDownloadTime').textContent = currentSqlData.downloadTime;
     });
 
+    // 只有点击保存配置，才会落库
     async function saveSQLConfig() {
         if (!currentSqlData) return;
         const name = document.getElementById('spName').value.trim();
@@ -1060,6 +1067,11 @@
         currentSqlData.name = name;
         currentSqlData.purpose = purpose;
         currentSqlData.locked = true; 
+
+        if (!currentSqlFiles.includes(currentSqlData)) {
+            currentSqlFiles.push(currentSqlData);
+        }
+        window.isEditingNew = false;
 
         await saveSQLProtectData();
         renderSQLDetailUI();
