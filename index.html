@@ -329,27 +329,33 @@
     }
     @media (max-width: 768px) {
         .mobile-repo-btn {
-            display: block;
-            width: 100%;
-            padding: 8px;
-            margin-top: 4px;
-            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px !important;
+            height: 32px !important;
+            padding: 0;
+            background: #fff;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 16px;
             color: #3b82f6;
             cursor: pointer;
-            text-align: center;
+            flex-shrink: 0;
+            z-index: 20;
         }
-        /* 移动端隐藏原本小小的 ▼ 箭头，让出位置 */
+        .mobile-repo-btn:active {
+            background: #eff6ff;
+        }
+        /* 移动端隐藏原本小小的 ▼ 箭头 */
         .repo-dropdown-btn {
             display: none !important;
         }
-        /* 适配移动端的历史列表位置 */
+        /* 适配移动端的历史列表位置，提高层级确保不被其他输入框盖住 */
         .repo-history-list {
             top: 100%;
             margin-top: 4px;
+            z-index: 99999 !important;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
     }
@@ -483,13 +489,13 @@
 <div class="top-bar">
     <div class="config-row">
         <input type="text" id="ghOwner" value="qiuhua-cac" placeholder="用户">
-        <div class="repo-selector-wrapper">
+        <div class="repo-selector-wrapper" style="gap: 4px;">
             <input type="text" id="ghRepo" placeholder="仓库">
             <button class="repo-dropdown-btn" id="repoDropdownBtn">▼</button>
+            <!-- 移动端专属：小正方形历史图标 -->
+            <button class="mobile-repo-btn" id="mobileRepoBtn" title="历史仓库">📜</button>
             <div class="repo-history-list" id="repoHistoryList"></div>
         </div>
-        <!-- 移动端专属：点击打开历史仓库的按钮 -->
-        <button class="mobile-repo-btn" id="mobileRepoBtn">📂 点击打开历史仓库</button>
         <input type="text" id="ghPath" value="index.html" placeholder="路径">
         <input type="password" id="ghToken" placeholder="GitHub Token">
         <button class="btn btn-secondary" id="saveConfigBtn">保存配置</button>
@@ -610,6 +616,7 @@
     let currentErrors = [];
     let autoHistoryTimer = null;
     let lastHistoryCount = 0;
+    let autoHistoryEnabled = true; // 全局开关：保护仓打开时置 false，关闭时恢复 true
     let batchMode = false;
     let isCloudSyncing = false; // 跨设备云仓同步锁
     
@@ -787,7 +794,12 @@
 
         // 点击页面空白处关闭列表
         document.addEventListener('click', (e) => { 
-            if (!repoList.contains(e.target) && e.target !== dropdownBtn && e.target !== mobileRepoBtn) {
+            // 如果点击的不是列表内部，也不是触发按钮，也不是小图标内，才关闭
+            if (repoList.classList.contains('active') &&
+                !repoList.contains(e.target) && 
+                e.target !== dropdownBtn && 
+                e.target !== mobileRepoBtn &&
+                !mobileRepoBtn.contains(e.target)) {
                 repoList.classList.remove('active'); 
             }
         });
@@ -855,7 +867,7 @@
             previewTimer = setTimeout(runValidation, 100); 
         });
 
-        // ===== SQL 保护仓事件绑定（全量重写，防自动保存） =====
+        // ===== 保护仓唯一注册入口（不重复，不嵌套） =====
         document.getElementById('dbProtectBtn').addEventListener('click', (e) => {
             e.preventDefault();
             openSQLProtectModal();
@@ -866,15 +878,27 @@
             window.isEditingNew = false;
             currentSqlData = null;
             document.getElementById('sqlProtectModal').classList.remove('active');
+            // 恢复自动保存历史
+            autoHistoryEnabled = true;
+            if (!autoHistoryTimer) startAutoHistory();
+            console.log('▶️ 保护仓关闭：已恢复自动保存历史');
+        });
+        document.getElementById('spBackBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // 纯草稿原则：退出时草稿一律作废，绝不 push 进 currentSqlFiles
+            if (window.isEditingNew) {
+                currentSqlData = null;
+            }
+            window.isEditingNew = false;
+            currentSqlData = null;
+            renderSQLFileList();
         });
         document.getElementById('spUploadBtn').addEventListener('click', uploadToSQLProtect);
         document.getElementById('spDownloadBtn').addEventListener('click', downloadFromSQLProtect);
         document.getElementById('spLockBtn').addEventListener('click', () => {
-            if (currentSqlData && currentSqlData.locked) {
-                showSPPasswordOverlay();
-            } else {
-                lockSQLProtect();
-            }
+            if (currentSqlData && currentSqlData.locked) showSPPasswordOverlay();
+            else lockSQLProtect();
         });
         document.getElementById('spModifyBtn').addEventListener('click', () => {
             if (!currentSqlData || currentSqlData.locked) return;
@@ -886,19 +910,6 @@
             document.getElementById('spDownloadBtn').disabled = true;
         });
         document.getElementById('spSaveConfigBtn').addEventListener('click', saveSQLConfig);
-        
-        // 🔥 修复返回按钮：只作为跳转，绝不保存
-        document.getElementById('spBackBtn').addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (window.isEditingNew) {
-                currentSqlData = null;
-                window.isEditingNew = false;
-            }
-            renderSQLFileList();
-        });
-        
-        // 密码遮罩相关
         document.getElementById('spPwdCancel').addEventListener('click', () => {
             document.getElementById('spPwdOverlay').classList.remove('active');
         });
@@ -940,6 +951,11 @@
     setTimeout(initSQLProtectData, 1500);
 
     async function openSQLProtectModal() {
+        // 停掉 60 秒自动保存历史，避免重排/焦点被抢
+        autoHistoryEnabled = false;
+        if (autoHistoryTimer) { clearInterval(autoHistoryTimer); autoHistoryTimer = null; }
+        console.log('⏸️ 保护仓打开：已禁用自动保存历史');
+
         document.getElementById('sqlProtectModal').classList.add('active');
         currentSqlFiles = await fetchSQLProtectData();
         renderSQLFileList();
@@ -1013,8 +1029,15 @@
         } catch (e) { console.warn('SQL保存失败', e); }
     }
 
-    // 点击设置按钮：仅打开纯草稿页面，不操作任何数据库
-    document.getElementById('spSettingsBtn').addEventListener('click', () => {
+    // 点击设置按钮：进入新建草稿，唯一入口
+    function handleSPSettingsClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        // 防抖：300ms 内重复触发直接忽略（杀幽灵闪退）
+        if (window.__spSettingsLock) return;
+        window.__spSettingsLock = true;
+        setTimeout(() => { window.__spSettingsLock = false; }, 300);
+
         const cfg = getGitConfig();
         const repoKey = cfg.repo ? `${cfg.owner}/${cfg.repo}` : '未配置';
         
@@ -1023,6 +1046,7 @@
             return showToast('该仓库已存在保护仓配置，不可重复创建', 'error');
         }
 
+        // 创建临时草稿（纯内存，绝不落库、绝不 push）
         currentSqlData = {
             name: `代码保护_${cfg.repo}`,
             repo: repoKey,
@@ -1035,9 +1059,9 @@
         };
         window.isEditingNew = true; 
 
-        document.getElementById('spFileListView').style.display = 'none';
-        document.getElementById('spDetailView').style.display = 'flex';
-        document.getElementById('spDetailFooter').style.display = 'flex';
+        document.getElementById('spFileListView').style.setProperty('display', 'none', 'important');
+        document.getElementById('spDetailView').style.setProperty('display', 'flex', 'important');
+        document.getElementById('spDetailFooter').style.setProperty('display', 'flex', 'important');
         
         document.getElementById('spName').disabled = false;
         document.getElementById('spPurpose').disabled = false;
@@ -1054,7 +1078,9 @@
         document.getElementById('spOpCount').textContent = currentSqlData.opCount;
         document.getElementById('spUploadTime').textContent = currentSqlData.uploadTime;
         document.getElementById('spDownloadTime').textContent = currentSqlData.downloadTime;
-    });
+    }
+    // 全局唯一注册（放在函数定义之后，bindEvents 外）
+    document.getElementById('spSettingsBtn').addEventListener('click', handleSPSettingsClick);
 
     // 只有点击保存配置，才会落库
     async function saveSQLConfig() {
@@ -1740,6 +1766,16 @@
     function startAutoHistory() {
         if (autoHistoryTimer) clearInterval(autoHistoryTimer);
         autoHistoryTimer = setInterval(() => {
+            // 🔥 总开关：保护仓打开时 autoHistoryEnabled=false，定时器即使残留也不干活
+            if (!autoHistoryEnabled) {
+                console.log('⏸️ 自动保存已禁用，跳过');
+                return;
+            }
+            const spModal = document.getElementById('sqlProtectModal');
+            if (spModal && spModal.classList.contains('active')) {
+                console.log('⏸️ 保护仓打开中，挂起自动保存历史');
+                return;
+            }
             windowsData.forEach(win => {
                 addHistory(win, win.content);
             });
