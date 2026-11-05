@@ -256,17 +256,32 @@
     .history-flash.active { display: block; animation: hFlash 2s ease; }
     @keyframes hFlash { 0%,100% { opacity: 0; } 15%,85% { opacity: 1; } }
 
-    /* ===== SQL 数据库保护仓现代化样式 ===== */
+    /* ===== SQL 数据库保护仓全清版 ===== */
     .sql-protect-modal { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); z-index: 100000; align-items: center; justify-content: center; padding: 16px; }
     .sql-protect-modal.active { display: flex; }
-    .sql-protect-box { background: #fff; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); width: 460px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+    .sql-protect-box { background: #fff; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); width: 460px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; position: relative; }
     
     .sp-header { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; flex-shrink: 0; }
     .sp-header h3 { font-size: 16px; color: #1e293b; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-    .sp-close { cursor: pointer; color: #94a3b8; font-size: 18px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: 0.2s; }
-    .sp-close:hover { background: #e2e8f0; color: #ef4444; }
+    .sp-header-actions { display: flex; gap: 8px; align-items: center; }
+    .sp-icon-btn { cursor: pointer; color: #64748b; font-size: 16px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: 0.2s; background: #fff; border: 1px solid #cbd5e1; }
+    .sp-icon-btn:hover { background: #e2e8f0; color: #1e293b; }
     
-    .sp-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .sp-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; }
+    .sp-empty { text-align: center; color: #94a3b8; font-size: 13px; padding: 40px 0; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    
+    /* 文件卡片网格 */
+    .sp-file-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .sp-file-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: 0.2s; position: relative; }
+    .sp-file-card:hover { border-color: #3b82f6; background: #eff6ff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.1); }
+    .sp-file-card .icon { font-size: 32px; margin-bottom: 8px; }
+    .sp-file-card .name { font-size: 13px; font-weight: 600; color: #1e293b; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-file-card .repo { font-size: 11px; color: #64748b; margin-top: 4px; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-file-card .lock { position: absolute; top: 8px; right: 8px; font-size: 14px; }
+    
+    /* 详情表单 */
+    .sp-back-btn { background: none; border: none; font-size: 13px; color: #3b82f6; cursor: pointer; padding: 0; margin-bottom: 16px; display: flex; align-items: center; gap: 4px; font-weight: 600; }
+    .sp-back-btn:hover { color: #2563eb; text-decoration: underline; }
     
     .sp-form-group { margin-bottom: 16px; }
     .sp-form-group label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; }
@@ -306,6 +321,7 @@
     @media (max-width: 600px) {
         .sp-info-grid { grid-template-columns: 1fr; }
         .sp-footer button { min-width: 100%; }
+        .sp-file-grid { grid-template-columns: 1fr; }
     }
     /* 移动端下拉按钮专属样式 */
     .mobile-repo-btn {
@@ -377,10 +393,22 @@
         
         <div class="sp-header">
             <h3><span>🛡️ 数据库保护仓</span></h3>
-            <span class="sp-close" id="spCloseBtn">✕</span>
+            <div class="sp-header-actions">
+                <button class="sp-icon-btn" id="spSettingsBtn" title="设置">⚙️</button>
+                <span class="sp-close" id="spCloseBtn" style="cursor:pointer; font-size:18px;">✕</span>
+            </div>
         </div>
         
-        <div class="sp-body">
+        <!-- 视图 1：文件列表界面 -->
+        <div class="sp-body" id="spFileListView">
+            <div id="spFileGrid" class="sp-file-grid"></div>
+            <div class="sp-empty" id="spEmptyTip">暂无配置文件，请点击右上角 ⚙️ 设置进行添加</div>
+        </div>
+        
+        <!-- 视图 2：配置详情界面 -->
+        <div class="sp-body" id="spDetailView" style="display:none;">
+            <button class="sp-back-btn" id="spBackBtn">← 返回文件列表</button>
+            
             <div class="sp-form-group">
                 <label>文件名称</label>
                 <input type="text" id="spName" placeholder="输入文件名称" disabled>
@@ -414,7 +442,8 @@
             </div>
         </div>
         
-        <div class="sp-footer">
+        <!-- 底部按钮区（仅在详情页显示） -->
+        <div class="sp-footer" id="spDetailFooter" style="display:none;">
             <button class="sp-btn-primary" id="spSaveConfigBtn" style="display:none;">💾 保存配置</button>
             <button class="sp-btn-primary" id="spUploadBtn" disabled>📤 上传到 SQL</button>
             <button class="sp-btn-secondary" id="spDownloadBtn">📥 下载并覆盖</button>
@@ -841,6 +870,7 @@
             }
         });
         document.getElementById('spModifyBtn').addEventListener('click', () => {
+            if (!currentSqlData || currentSqlData.locked) return;
             document.getElementById('spName').disabled = false;
             document.getElementById('spPurpose').disabled = false;
             document.getElementById('spSaveConfigBtn').style.display = 'block';
@@ -849,6 +879,11 @@
             document.getElementById('spDownloadBtn').disabled = true;
         });
         document.getElementById('spSaveConfigBtn').addEventListener('click', saveSQLConfig);
+        
+        // 返回文件列表
+        document.getElementById('spBackBtn').addEventListener('click', () => {
+            renderSQLFileList();
+        });
         
         // 密码遮罩相关
         document.getElementById('spPwdCancel').addEventListener('click', () => {
@@ -869,75 +904,73 @@
         });
     }
 
-    // ==================== SQL 保护仓核心逻辑 ====================
-    let currentSqlData = null;
-    const API_BASE = 'https://qhtvyy.com:3000'; // 确保这行存在，若原来有请不要覆盖这行，这里用作提示
+    // ==================== SQL 保护仓全新逻辑 ====================
+    let currentSqlFiles = []; // 存放所有配置文件
+    let currentSqlData = null; // 当前选中查看的文件
+    const API_BASE = 'https://qhtvyy.com:3000';
 
     async function fetchSQLProtectData() {
         try {
             const res = await fetch(API_BASE + '/api/get-all-data?t=' + Date.now());
             const json = await res.json();
             if (json.success && json.data && json.data['zk_store']) {
-                return typeof json.data['zk_store'] === 'string' ? JSON.parse(json.data['zk_store']) : json.data['zk_store'];
+                let data = typeof json.data['zk_store'] === 'string' ? JSON.parse(json.data['zk_store']) : json.data['zk_store'];
+                return Array.isArray(data) ? data : [data]; // 兼容旧数据
             }
         } catch (e) { console.warn('获取保护仓数据失败', e); }
-        return null;
+        return [];
     }
 
-    // 页面启动时自动拉取一次数据到 currentSqlData，实现跨端同步
+    // 静默同步
     async function initSQLProtectData() {
-        const data = await fetchSQLProtectData();
-        if (data) {
-            currentSqlData = data;
-            console.log('✅ 已静默同步保护仓数据');
-        }
+        currentSqlFiles = await fetchSQLProtectData();
+        console.log('✅ 已静默同步保护仓文件列表');
     }
-    // 启动时静默执行
     setTimeout(initSQLProtectData, 1500);
 
     async function openSQLProtectModal() {
         document.getElementById('sqlProtectModal').classList.add('active');
-        
-        // 打开时重新拉取一次最新的，防止跨端数据不同步
-        const data = await fetchSQLProtectData();
-        if (data) currentSqlData = data;
-
-        const cfg = getGitConfig();
-        const repoKey = cfg.repo ? `${cfg.owner}/${cfg.repo}` : '未配置';
-
-        if (!currentSqlData) {
-            // 首次生成配置，直接展示可编辑表单
-            currentSqlData = {
-                name: `代码备份_${cfg.repo || '未知'}`,
-                repo: repoKey,
-                purpose: '请填写用途',
-                content: editor.getValue(),
-                locked: false,
-                uploadTime: '暂无',
-                downloadTime: '暂无',
-                opCount: 0
-            };
-            document.getElementById('spName').disabled = false;
-            document.getElementById('spPurpose').disabled = false;
-            document.getElementById('spSaveConfigBtn').style.display = 'block';
-            document.getElementById('spModifyBtn').style.display = 'none';
-            document.getElementById('spUploadBtn').disabled = true;
-            document.getElementById('spDownloadBtn').disabled = true;
-            document.getElementById('spLockBtn').textContent = '🔒 锁定配置';
-            document.getElementById('spStatus').textContent = '🔓 尚未保存';
-            document.getElementById('spStatus').style.color = '#f59e0b';
-        } else {
-            renderSQLProtectUI();
-        }
-        document.getElementById('spName').value = currentSqlData.name;
-        document.getElementById('spPurpose').value = currentSqlData.purpose;
-        document.getElementById('spRepo').textContent = currentSqlData.repo;
-        document.getElementById('spOpCount').textContent = currentSqlData.opCount;
-        document.getElementById('spUploadTime').textContent = currentSqlData.uploadTime;
-        document.getElementById('spDownloadTime').textContent = currentSqlData.downloadTime;
+        currentSqlFiles = await fetchSQLProtectData();
+        renderSQLFileList();
     }
 
-    function renderSQLProtectUI() {
+    // 渲染文件列表
+    function renderSQLFileList() {
+        document.getElementById('spDetailView').style.display = 'none';
+        document.getElementById('spDetailFooter').style.display = 'none';
+        document.getElementById('spFileListView').style.display = 'flex';
+        
+        const grid = document.getElementById('spFileGrid');
+        const emptyTip = document.getElementById('spEmptyTip');
+        
+        if (currentSqlFiles.length === 0) {
+            grid.innerHTML = '';
+            emptyTip.style.display = 'flex';
+        } else {
+            emptyTip.style.display = 'none';
+            grid.innerHTML = currentSqlFiles.map((f, i) => `
+                <div class="sp-file-card" onclick="openSQLFileDetail(${i})">
+                    ${f.locked ? '<span class="lock">🔒</span>' : ''}
+                    <div class="icon">📄</div>
+                    <div class="name">${f.name || '未命名'}</div>
+                    <div class="repo">${f.repo || '无仓库'}</div>
+                </div>
+            `).join('');
+        }
+    }
+
+    // 打开某个文件的详情
+    function openSQLFileDetail(index) {
+        currentSqlData = currentSqlFiles[index];
+        if (!currentSqlData) return;
+        
+        document.getElementById('spFileListView').style.display = 'none';
+        document.getElementById('spDetailView').style.display = 'flex';
+        document.getElementById('spDetailFooter').style.display = 'flex';
+        renderSQLDetailUI();
+    }
+
+    function renderSQLDetailUI() {
         if (!currentSqlData) return;
         document.getElementById('spName').value = currentSqlData.name;
         document.getElementById('spPurpose').value = currentSqlData.purpose;
@@ -956,19 +989,66 @@
         document.getElementById('spModifyBtn').style.display = isLocked ? 'none' : 'block';
         document.getElementById('spUploadBtn').disabled = isLocked;
         document.getElementById('spDownloadBtn').disabled = false;
-        document.getElementById('spLockBtn').textContent = isLocked ? '🔒 解锁修改' : '🔓 锁定';
+        document.getElementById('spLockBtn').textContent = isLocked ? '🔓 解锁修改' : '🔒 锁定';
         document.getElementById('spLockBtn').className = isLocked ? 'sp-btn-warning' : 'sp-btn-primary';
     }
 
-    async function saveSQLProtectData(data) {
+    async function saveSQLProtectData() {
         try {
             await fetch(API_BASE + '/api/save-data', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 'zk_store': data })
+                body: JSON.stringify({ 'zk_store': currentSqlFiles })
             });
         } catch (e) { console.warn('SQL保存失败', e); }
     }
+
+    // 点击设置按钮
+    document.getElementById('spSettingsBtn').addEventListener('click', () => {
+        const cfg = getGitConfig();
+        const repoKey = cfg.repo ? `${cfg.owner}/${cfg.repo}` : '未配置';
+        
+        if (!cfg.repo) return showToast('请先在上方配置你的仓库', 'error');
+        
+        // 检查是否已经配置过
+        if (currentSqlFiles.some(f => f.repo === repoKey)) {
+            return showToast('该仓库已存在保护仓配置，不可重复创建', 'error');
+        }
+
+        const newConfig = {
+            name: `代码保护_${cfg.repo}`,
+            repo: repoKey,
+            purpose: '请填写用途说明',
+            content: '',
+            locked: false, // 新建时默认未锁，方便填写
+            uploadTime: '暂无',
+            downloadTime: '暂无',
+            opCount: 0
+        };
+        
+        currentSqlFiles.push(newConfig);
+        saveSQLProtectData();
+        currentSqlData = newConfig;
+        
+        document.getElementById('spFileListView').style.display = 'none';
+        document.getElementById('spDetailView').style.display = 'flex';
+        document.getElementById('spDetailFooter').style.display = 'flex';
+        
+        // 解锁并允许填写
+        document.getElementById('spName').disabled = false;
+        document.getElementById('spPurpose').disabled = false;
+        document.getElementById('spSaveConfigBtn').style.display = 'block';
+        document.getElementById('spModifyBtn').style.display = 'none';
+        document.getElementById('spUploadBtn').disabled = true;
+        document.getElementById('spDownloadBtn').disabled = true;
+        document.getElementById('spStatus').textContent = '🔓 配置中...';
+        document.getElementById('spStatus').style.color = '#f59e0b';
+        
+        renderSQLDetailUI();
+        document.getElementById('spName').disabled = false;
+        document.getElementById('spPurpose').disabled = false;
+        document.getElementById('spSaveConfigBtn').style.display = 'block';
+    });
 
     async function saveSQLConfig() {
         if (!currentSqlData) return;
@@ -979,10 +1059,10 @@
 
         currentSqlData.name = name;
         currentSqlData.purpose = purpose;
-        currentSqlData.locked = true; // 保存后自动上锁
+        currentSqlData.locked = true; 
 
-        await saveSQLProtectData(currentSqlData);
-        renderSQLProtectUI();
+        await saveSQLProtectData();
+        renderSQLDetailUI();
         showToast('配置已保存并锁定', 'success');
     }
 
@@ -994,10 +1074,10 @@
         currentSqlData.content = code;
         currentSqlData.uploadTime = new Date().toLocaleString('zh-CN');
         currentSqlData.opCount++;
-        currentSqlData.locked = true; // 修改后自动上锁
+        currentSqlData.locked = true; 
         
-        await saveSQLProtectData(currentSqlData);
-        renderSQLProtectUI();
+        await saveSQLProtectData();
+        renderSQLDetailUI();
         showToast('上传成功，已自动上锁', 'success');
     }
 
@@ -1013,16 +1093,16 @@
 
         currentSqlData.downloadTime = new Date().toLocaleString('zh-CN');
         currentSqlData.opCount++;
-        await saveSQLProtectData(currentSqlData);
-        renderSQLProtectUI();
+        await saveSQLProtectData();
+        renderSQLDetailUI();
         showToast('下载覆盖成功', 'success');
     }
 
     async function lockSQLProtect() {
         if (!currentSqlData) return;
         currentSqlData.locked = true;
-        await saveSQLProtectData(currentSqlData);
-        renderSQLProtectUI();
+        await saveSQLProtectData();
+        renderSQLDetailUI();
         showToast('已锁定', 'success');
     }
 
@@ -1035,8 +1115,8 @@
     async function unlockSQLProtect() {
         if (!currentSqlData) return;
         currentSqlData.locked = false;
-        await saveSQLProtectData(currentSqlData);
-        renderSQLProtectUI();
+        await saveSQLProtectData();
+        renderSQLDetailUI();
         showToast('已解锁，请点击修改配置', 'success');
     }
     // ================= 核心搜索逻辑 =================
