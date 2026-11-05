@@ -870,7 +870,15 @@
         // ===== 保护仓唯一注册入口（不重复，不嵌套） =====
         document.getElementById('dbProtectBtn').addEventListener('click', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             openSQLProtectModal();
+        });
+        // 在弹窗内部统一拦截冒泡，防止穿透触发底层编辑器的 touchstart
+        document.getElementById('sqlProtectModal').addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        document.getElementById('sqlProtectModal').addEventListener('touchstart', (e) => {
+            e.stopPropagation();
         });
         document.getElementById('spCloseBtn').addEventListener('click', (e) => {
             e.preventDefault();
@@ -946,19 +954,72 @@
     }
 
     async function initSQLProtectData() {
-        currentSqlFiles = await fetchSQLProtectData();
+        // 1. 先从本地缓存极速读取（瞬间加载）
+        try {
+            const localCache = localStorage.getItem('rescue_sql_protect_cache');
+            if (localCache) {
+                currentSqlFiles = JSON.parse(localCache);
+                console.log('✅ 已从本地缓存极速加载保护仓数据');
+            }
+        } catch (e) { console.warn('读取本地缓存失败', e); }
+
+        // 2. 后台静默向服务器请求最新数据并更新缓存
+        try {
+            const freshData = await fetchSQLProtectData();
+            if (freshData && freshData.length > 0) {
+                currentSqlFiles = freshData;
+                localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(freshData));
+                console.log('✅ 保护仓云端数据同步成功');
+            }
+        } catch (e) { console.warn('云端同步失败，继续使用本地缓存'); }
     }
-    setTimeout(initSQLProtectData, 1500);
+    // 取消 1.5 秒延迟，页面加载 DOM 完成后立即请求，提前把数据拿到内存里
+    document.addEventListener('DOMContentLoaded', () => {
+        initSQLProtectData();
+    });
 
     async function openSQLProtectModal() {
         // 停掉 60 秒自动保存历史，避免重排/焦点被抢
         autoHistoryEnabled = false;
         if (autoHistoryTimer) { clearInterval(autoHistoryTimer); autoHistoryTimer = null; }
-        console.log('⏸️ 保护仓打开：已禁用自动保存历史');
-
+        
+        // 1. 立即渲染界面，消除任何等待感
         document.getElementById('sqlProtectModal').classList.add('active');
-        currentSqlFiles = await fetchSQLProtectData();
-        renderSQLFileList();
+        
+        // ★ 核心升级：点开的瞬间，直接使用本地缓存渲染，绝不出现“正在同步”字样
+        try {
+            const localCache = localStorage.getItem('rescue_sql_protect_cache');
+            if (localCache) {
+                currentSqlFiles = JSON.parse(localCache);
+            }
+        } catch (e) {}
+
+        // 如果内存或缓存里有数据，立刻展示
+        if (currentSqlFiles && currentSqlFiles.length > 0) {
+            renderSQLFileList();
+        } else {
+            // 如果本地彻底没数据，展示空状态让用户去点 ⚙️ 设置
+            renderSQLFileList();
+        }
+
+        // 2. 拦截所有冒泡（防止触摸事件穿透到底层引发闪退）
+        const modal = document.getElementById('sqlProtectModal');
+        const stopEvent = (e) => { e.stopPropagation(); };
+        modal.addEventListener('touchstart', stopEvent, { passive: true });
+        modal.addEventListener('mousedown', stopEvent, { passive: true });
+
+        // 3. 后台静默拉取最新数据，拉到了就更新，拉不到也不报错
+        try {
+            const freshData = await fetchSQLProtectData();
+            // 如果从服务器拉取到了新数据，且和本地不一样，就刷新界面
+            if (freshData && freshData.length > 0) {
+                currentSqlFiles = freshData;
+                localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(freshData));
+                renderSQLFileList();
+            }
+        } catch (e) {
+            console.warn('后台同步失败，继续使用本地缓存数据', e);
+        }
     }
 
     function renderSQLFileList() {
@@ -1020,6 +1081,12 @@
     }
 
     async function saveSQLProtectData() {
+        // 1. 先存本地缓存，做到秒级保存
+        try {
+            localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(currentSqlFiles));
+        } catch (e) {}
+
+        // 2. 后台推送到服务器
         try {
             await fetch(API_BASE + '/api/save-data', {
                 method: 'POST',
