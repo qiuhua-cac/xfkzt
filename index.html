@@ -925,10 +925,16 @@
             window.isEditingNew = false;
             currentSqlData = null;
             document.getElementById('sqlProtectModal').classList.remove('active');
+            
+            // 确保关闭时回到列表页视图
+            document.getElementById('spFileListView').style.display = 'flex';
+            document.getElementById('spDetailView').style.display = 'none';
+            document.getElementById('spDetailFooter').style.display = 'none';
+
             // 恢复自动保存历史
             autoHistoryEnabled = true;
             if (!autoHistoryTimer) startAutoHistory();
-            console.log('▶️ 保护仓关闭：已恢复自动保存历史');
+            console.log('▶️ 保护仓关闭：已恢复自动保存历史，下次打开直接秒开');
         });
         document.getElementById('spBackBtn').addEventListener('click', (e) => {
             e.preventDefault();
@@ -1042,21 +1048,22 @@
         modal.addEventListener('touchstart', stopEvent, { passive: true });
         modal.addEventListener('mousedown', stopEvent, { passive: true });
         
-        // 3. 强制清空本地坏数据，防止被空数组覆盖
-        try {
-            localStorage.removeItem('rescue_sql_protect_cache');
-            currentSqlFiles = [];
-        } catch (e) {}
-
-        // 立刻展示“正在加载”的文字提示
+        // 3. 强制把视图重置为文件列表，防止停留在详情页
         document.getElementById('spFileListView').style.display = 'flex';
         document.getElementById('spDetailView').style.display = 'none';
+        document.getElementById('spDetailFooter').style.display = 'none';
+
+        // ★ 核心突破：如果内存里已经有预加载好的数据，直接秒开渲染，完全不走网络请求！
+        if (currentSqlFiles && currentSqlFiles.length > 0) {
+            renderSQLFileList();
+            return; // 直接结束，实现秒开！
+        }
+
+        // 4. 只有在内存没数据（比如页面刚打开网络较慢，预加载还没完成）时，才展示加载提示并强制拉取
         document.getElementById('spFileGrid').innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:20px;">正在从服务器同步数据...</div>';
 
-        // 4. 强制死等服务器数据，绝不等本地缓存
         try {
             const freshData = await fetchSQLProtectData();
-            // 只要服务器有数据（不管有没有变化），强制给内存赋值
             if (freshData && freshData.length > 0) {
                 currentSqlFiles = freshData;
                 try { localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(freshData)); } catch(e) {}
@@ -1064,15 +1071,10 @@
                 currentSqlFiles = []; 
             }
             
-            // ★ 核心：无论数据是空还是非空，直接强行重绘一次界面！
-            // 防止由于之前弹窗已经渲染为空，导致新数据没有被展示出来
-            document.getElementById('spFileListView').style.display = 'flex';
-            document.getElementById('spDetailView').style.display = 'none';
-            document.getElementById('spDetailFooter').style.display = 'none';
+            // 强制重新渲染
             renderSQLFileList(); 
             
         } catch (e) {
-            // 如果是网络失败，保留旧数据，并提示
             console.warn('云端拉取失败，保留本地旧数据', e);
             renderSQLFileList();
             showToast('⚠️ 网络异常，无法从服务器同步最新配置', 'error');
