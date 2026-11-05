@@ -1207,18 +1207,21 @@
     }
 
     async function uploadToSQLProtect() {
-        if (!currentSqlData || currentSqlData.locked) return;
+        if (!currentSqlData) return;
+        // 强制读取当前编辑器里的代码，哪怕只有一个字
         const code = editor.getValue();
-        if (!code.trim()) return showToast('代码为空，无法上传', 'error');
+        if (!code || !code.trim()) return showToast('当前编辑器代码为空，无法上传', 'error');
         
+        // 核心：直接覆盖当前配置的内容，不管它之前是什么样
         currentSqlData.content = code;
         currentSqlData.uploadTime = new Date().toLocaleString('zh-CN');
         currentSqlData.opCount++;
         currentSqlData.locked = true; 
         
+        // 直接落库
         await saveSQLProtectData();
         renderSQLDetailUI();
-        showToast('上传成功，已自动上锁', 'success');
+        showToast('✅ 已用当前编辑器内容覆盖并上传到 SQL', 'success');
     }
 
     async function downloadFromSQLProtect() {
@@ -1368,40 +1371,35 @@
     });
 
     function savePersistedData() {
-        // 尝试写入并自动缩减数据的函数
-        const trySetItem = (key, dataStr) => {
-            try {
-                localStorage.setItem(key, dataStr);
-                return true;
-            } catch (e) {
-                return false; // 写入失败，空间爆满
-            }
-        };
-
         // 1. 处理 windowsData（代码数据）
-        let winDataStr = JSON.stringify(windowsData);
-        if (!trySetItem('rescue_windows_data', winDataStr)) {
-            console.warn('⚠️ 本地存储空间不足，正在清理旧历史记录并重试...');
-            // 暴力裁剪：每个窗口的历史记录只保留最新 3 条
+        try {
+            localStorage.setItem('rescue_windows_data', JSON.stringify(windowsData));
+        } catch (e) {
+            console.warn('⚠️ 代码数据空间不足，强制清理历史记录后重试');
             windowsData.forEach(win => {
                 if (win.history) win.history = win.history.slice(0, 3);
             });
-            winDataStr = JSON.stringify(windowsData);
-            trySetItem('rescue_windows_data', winDataStr); // 再次尝试
+            try {
+                localStorage.setItem('rescue_windows_data', JSON.stringify(windowsData));
+            } catch (err) {
+                console.error('本地存储彻底满了，代码数据无法保存');
+            }
         }
 
         // 2. 处理 globalCloudBackups（云仓库数据）
-        let cloudStr = JSON.stringify(globalCloudBackups);
-        if (!trySetItem('rescue_cloud_backups', cloudStr)) {
-            console.warn('⚠️ 云仓备份空间不足，正在清理旧备份并重试...');
-            // 暴力裁剪：最多保留最新 5 条
-            if (globalCloudBackups.length > 5) {
-                globalCloudBackups = globalCloudBackups.slice(0, 5);
-            } else {
-                globalCloudBackups = []; // 如果 5 条都存不下，直接全清
+        try {
+            localStorage.setItem('rescue_cloud_backups', JSON.stringify(globalCloudBackups));
+        } catch (e) {
+            console.warn('⚠️ 云仓库空间不足，强制清空旧备份');
+            globalCloudBackups = globalCloudBackups.slice(0, 5); // 只留 5 条
+            try {
+                localStorage.setItem('rescue_cloud_backups', JSON.stringify(globalCloudBackups));
+            } catch (err) {
+                globalCloudBackups = []; // 如果 5 条都存不下，全清
+                try {
+                    localStorage.setItem('rescue_cloud_backups', '[]');
+                } catch (err2) {}
             }
-            cloudStr = JSON.stringify(globalCloudBackups);
-            trySetItem('rescue_cloud_backups', cloudStr); // 再次尝试
         }
     }
 
