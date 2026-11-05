@@ -307,6 +307,36 @@
         .sp-info-grid { grid-template-columns: 1fr; }
         .sp-footer button { min-width: 100%; }
     }
+    /* 移动端下拉按钮专属样式 */
+    .mobile-repo-btn {
+        display: none; /* 默认电脑端隐藏 */
+    }
+    @media (max-width: 768px) {
+        .mobile-repo-btn {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin-top: 4px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #3b82f6;
+            cursor: pointer;
+            text-align: center;
+        }
+        /* 移动端隐藏原本小小的 ▼ 箭头，让出位置 */
+        .repo-dropdown-btn {
+            display: none !important;
+        }
+        /* 适配移动端的历史列表位置 */
+        .repo-history-list {
+            top: 100%;
+            margin-top: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+    }
     /* ================================ */
 </style>
 </head>
@@ -429,6 +459,8 @@
             <button class="repo-dropdown-btn" id="repoDropdownBtn">▼</button>
             <div class="repo-history-list" id="repoHistoryList"></div>
         </div>
+        <!-- 移动端专属：点击打开历史仓库的按钮 -->
+        <button class="mobile-repo-btn" id="mobileRepoBtn">📂 点击打开历史仓库</button>
         <input type="text" id="ghPath" value="index.html" placeholder="路径">
         <input type="password" id="ghToken" placeholder="GitHub Token">
         <button class="btn btn-secondary" id="saveConfigBtn">保存配置</button>
@@ -703,17 +735,30 @@
             leftPanel.classList.remove('open'); mobileOverlay.classList.remove('open');
         });
         const dropdownBtn = document.getElementById('repoDropdownBtn');
+        const mobileRepoBtn = document.getElementById('mobileRepoBtn');
         const repoList = document.getElementById('repoHistoryList');
-        // 🔥 修复：同时绑定 click 和 touchend，并阻止冒泡，解决移动端无法点击下拉箭头的问题
-        const toggleDropdown = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            repoList.classList.toggle('active');
-        };
-        dropdownBtn.addEventListener('click', toggleDropdown);
-        dropdownBtn.addEventListener('touchend', toggleDropdown);
+        
+        // 电脑端：仅监听箭头按钮点击
+        if (dropdownBtn) {
+            dropdownBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                repoList.classList.toggle('active');
+            });
+        }
+
+        // 移动端：仅监听专属“打开历史仓库”按钮
+        if (mobileRepoBtn) {
+            mobileRepoBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                repoList.classList.toggle('active');
+            });
+        }
+
+        // 点击页面空白处关闭列表
         document.addEventListener('click', (e) => { 
-            if (!repoList.contains(e.target) && e.target !== dropdownBtn) {
+            if (!repoList.contains(e.target) && e.target !== dropdownBtn && e.target !== mobileRepoBtn) {
                 repoList.classList.remove('active'); 
             }
         });
@@ -1103,8 +1148,41 @@
     });
 
     function savePersistedData() {
-        localStorage.setItem('rescue_windows_data', JSON.stringify(windowsData));
-        localStorage.setItem('rescue_cloud_backups', JSON.stringify(globalCloudBackups));
+        try {
+            let dataStr = JSON.stringify(windowsData);
+            // 如果大于 3.5MB，自动清理旧的历史记录
+            if (dataStr.length > 3.5 * 1024 * 1024) {
+                windowsData.forEach(win => {
+                    // 至少保留最新的 10 条记录，超出的从末尾删除
+                    while (win.history.length > 10) {
+                        win.history.pop();
+                    }
+                });
+                dataStr = JSON.stringify(windowsData);
+            }
+            localStorage.setItem('rescue_windows_data', dataStr);
+            
+            // 云仓库备份也做同样处理
+            let cloudStr = JSON.stringify(globalCloudBackups);
+            if (cloudStr.length > 1 * 1024 * 1024) {
+                while (globalCloudBackups.length > 10) {
+                    globalCloudBackups.pop();
+                }
+                cloudStr = JSON.stringify(globalCloudBackups);
+            }
+            localStorage.setItem('rescue_cloud_backups', cloudStr);
+
+        } catch (e) {
+            console.warn('⚠️ 本地存储空间不足，已自动跳过历史记录保存:', e);
+            // 如果还报错，说明彻底满了，此时清空历史记录并重试
+            try {
+                windowsData.forEach(win => win.history = win.history.slice(0, 3));
+                localStorage.setItem('rescue_windows_data', JSON.stringify(windowsData));
+                localStorage.setItem('rescue_cloud_backups', JSON.stringify(globalCloudBackups));
+            } catch (err) {
+                console.error('本地存储彻底满了，本次数据仅保存在内存中', err);
+            }
+        }
     }
 
     // === 跨设备同步云仓库核心逻辑 ===
@@ -1365,7 +1443,13 @@
             if (editor.getValue().trim() !== '') { if (!confirm('将覆盖当前内容，是否继续？')) return; }
             editor.setValue(content); win.content = content; editor.setOption('mode', ext === 'html' ? 'htmlmixed' : 'text/plain');
             isReadOnly = true; editor.setOption('readOnly', true); updateToggleBtnUI();
-            addLog(win, `导入: ${file.name}`); savePersistedData(); showToast('文件已导入', 'success'); runValidation();
+            
+            // 导入新文件时，清理旧历史防止爆仓
+            win.history = win.history.slice(0, 2);
+            addLog(win, `导入: ${file.name}`); 
+            savePersistedData(); 
+            showToast('文件已导入', 'success'); 
+            runValidation();
         };
         reader.readAsText(file); document.getElementById('fileInput').value = '';
     }
@@ -1690,7 +1774,11 @@
             if(editor.getValue().trim()!==''){ if(!confirm('当前编辑器有内容，是否覆盖？')){ pullBtn.disabled=false; return; } }
             editor.setValue(text); win.content = text; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); addLog(win,'拉取成功',`远程路径：${cfg.path}`); addHistory(win,text); savePersistedData(); runValidation(); showToast('✅ 拉取完成','success');
         }catch(e){
-            addLog(windowsData[activeWindowIndex],'拉取失败',`<span class="error-report">${e.message}</span>`); showToast(e.message,'error');
+            if (e.name === 'QuotaExceededError' || e.message.includes('quota')) {
+                showToast('本地存储空间已满，代码已成功拉取但不保存快照', 'success');
+            } else {
+                addLog(windowsData[activeWindowIndex],'拉取失败',`<span class="error-report">${e.message}</span>`); showToast(e.message,'error');
+            }
         }finally{ document.getElementById('pullBtn').disabled = false; }
     }
 
