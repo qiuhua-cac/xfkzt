@@ -255,6 +255,59 @@
     .history-flash.red { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
     .history-flash.active { display: block; animation: hFlash 2s ease; }
     @keyframes hFlash { 0%,100% { opacity: 0; } 15%,85% { opacity: 1; } }
+
+    /* ===== SQL 数据库保护仓现代化样式 ===== */
+    .sql-protect-modal { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); z-index: 100000; align-items: center; justify-content: center; padding: 16px; }
+    .sql-protect-modal.active { display: flex; }
+    .sql-protect-box { background: #fff; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); width: 460px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+    
+    .sp-header { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; flex-shrink: 0; }
+    .sp-header h3 { font-size: 16px; color: #1e293b; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .sp-close { cursor: pointer; color: #94a3b8; font-size: 18px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: 0.2s; }
+    .sp-close:hover { background: #e2e8f0; color: #ef4444; }
+    
+    .sp-body { padding: 20px; overflow-y: auto; flex: 1; }
+    
+    .sp-form-group { margin-bottom: 16px; }
+    .sp-form-group label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+    .sp-form-group input, .sp-form-group textarea { width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; transition: 0.2s; font-family: inherit; background: #f8fafc; }
+    .sp-form-group input:focus, .sp-form-group textarea:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+    .sp-form-group input:disabled, .sp-form-group textarea:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; border-color: #e2e8f0; }
+    
+    .sp-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 16px; }
+    .sp-info-item { display: flex; flex-direction: column; gap: 4px; }
+    .sp-info-item .label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; }
+    .sp-info-item .value { font-size: 13px; color: #1e293b; font-weight: 500; word-break: break-all; }
+    .sp-info-item .value.highlight { color: #3b82f6; }
+    
+    .sp-footer { padding: 16px 20px; border-top: 1px solid #e2e8f0; background: #fafcff; display: flex; gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
+    .sp-footer button { flex: 1; min-width: 100px; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: 0.2s; }
+    .sp-footer button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .sp-btn-primary { background: #3b82f6; color: #fff; }
+    .sp-btn-primary:hover:not(:disabled) { background: #2563eb; }
+    .sp-btn-warning { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    .sp-btn-warning:hover:not(:disabled) { background: #fde68a; }
+    .sp-btn-secondary { background: #fff; color: #1e293b; border: 1px solid #cbd5e1; }
+    .sp-btn-secondary:hover:not(:disabled) { background: #f1f5f9; }
+    .sp-btn-danger { background: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; }
+    .sp-btn-danger:hover:not(:disabled) { background: #fee2e2; }
+    
+    .sp-pwd-overlay { display: none; position: absolute; inset: 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(4px); z-index: 10; align-items: center; justify-content: center; flex-direction: column; padding: 20px; text-align: center; }
+    .sp-pwd-overlay.active { display: flex; }
+    .sp-pwd-overlay h4 { font-size: 15px; color: #1e293b; margin-bottom: 10px; }
+    .sp-pwd-overlay input { width: 100%; max-width: 200px; padding: 10px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; margin-bottom: 12px; text-align: center; }
+    .sp-pwd-overlay input:focus { border-color: #3b82f6; }
+    .sp-pwd-btns { display: flex; gap: 10px; width: 100%; max-width: 200px; }
+    .sp-pwd-btns button { flex: 1; padding: 8px; border-radius: 6px; font-size: 13px; cursor: pointer; border: none; font-weight: 600; }
+    .sp-pwd-btns .btn-cancel { background: #e2e8f0; color: #475569; }
+    .sp-pwd-btns .btn-ok { background: #3b82f6; color: #fff; }
+
+    /* 移动端适配 */
+    @media (max-width: 600px) {
+        .sp-info-grid { grid-template-columns: 1fr; }
+        .sp-footer button { min-width: 100%; }
+    }
+    /* ================================ */
 </style>
 </head>
 <body>
@@ -278,6 +331,68 @@
 <div class="history-flash" id="historyFlash"></div>
 
 <iframe id="sandboxIframe" style="display:none;"></iframe>
+
+<!-- ==================== 数据库保护仓弹窗 ==================== -->
+<div class="sql-protect-modal" id="sqlProtectModal">
+    <div class="sql-protect-box" style="position:relative;">
+        <!-- 密码验证遮罩层 -->
+        <div class="sp-pwd-overlay" id="spPwdOverlay">
+            <h4>🔒 请输入解锁密码</h4>
+            <input type="password" id="spPwdInput" placeholder="输入密码...">
+            <div class="sp-pwd-btns">
+                <button class="btn-cancel" id="spPwdCancel">取消</button>
+                <button class="btn-ok" id="spPwdOk">确认解锁</button>
+            </div>
+        </div>
+        
+        <div class="sp-header">
+            <h3><span>🛡️ 数据库保护仓</span></h3>
+            <span class="sp-close" id="spCloseBtn">✕</span>
+        </div>
+        
+        <div class="sp-body">
+            <div class="sp-form-group">
+                <label>文件名称</label>
+                <input type="text" id="spName" placeholder="输入文件名称" disabled>
+            </div>
+            <div class="sp-form-group">
+                <label>仓库用途（配置说明）</label>
+                <input type="text" id="spPurpose" placeholder="如：主站代码、测试备份等" disabled>
+            </div>
+            
+            <div class="sp-info-grid">
+                <div class="sp-info-item">
+                    <span class="label">所属仓库</span>
+                    <span class="value highlight" id="spRepo">-</span>
+                </div>
+                <div class="sp-info-item">
+                    <span class="label">操作次数</span>
+                    <span class="value" id="spOpCount">0</span>
+                </div>
+                <div class="sp-info-item">
+                    <span class="label">最后上传时间</span>
+                    <span class="value" id="spUploadTime">暂无</span>
+                </div>
+                <div class="sp-info-item">
+                    <span class="label">最后下载时间</span>
+                    <span class="value" id="spDownloadTime">暂无</span>
+                </div>
+                <div class="sp-info-item" style="grid-column: 1 / -1;">
+                    <span class="label">当前状态</span>
+                    <span class="value" id="spStatus" style="font-weight:bold;">🔒 已上锁</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sp-footer">
+            <button class="sp-btn-primary" id="spSaveConfigBtn" style="display:none;">💾 保存配置</button>
+            <button class="sp-btn-primary" id="spUploadBtn" disabled>📤 上传到 SQL</button>
+            <button class="sp-btn-secondary" id="spDownloadBtn">📥 下载并覆盖</button>
+            <button class="sp-btn-warning" id="spLockBtn">🔓 解锁修改</button>
+            <button class="sp-btn-secondary" id="spModifyBtn" style="display:none;">✏️ 修改配置</button>
+        </div>
+    </div>
+</div>
 
 <!-- ==================== 移动端全屏原生编辑弹窗 ==================== -->
 <div class="mobile-editor-modal" id="mobileEditorModal">
@@ -355,7 +470,10 @@
     <div id="historyList" style="padding:10px;"></div>
 </div>
         <div class="panel-content-area" id="panel-cloud">
-            <div style="padding: 10px 15px;"><button class="btn btn-secondary" id="manualBackupBtn" style="padding:8px; font-size:13px;">📥 手动备份当前代码</button></div>
+            <div style="padding: 10px 15px; display: flex; flex-direction: column; gap: 10px;">
+                <button class="btn btn-secondary" id="manualBackupBtn" style="padding:8px; font-size:13px;">📥 手动备份当前代码</button>
+                <button class="btn btn-secondary" id="dbProtectBtn" style="padding:8px; font-size:13px; border-color: #93c5fd; color: #1d4ed8; background: #eff6ff;">🛡️ 数据库保护仓</button>
+            </div>
             <div class="cloud-grid" id="cloudGrid"></div>
         </div>
     </div>
@@ -586,8 +704,19 @@
         });
         const dropdownBtn = document.getElementById('repoDropdownBtn');
         const repoList = document.getElementById('repoHistoryList');
-        dropdownBtn.addEventListener('click', (e) => { e.stopPropagation(); repoList.classList.toggle('active'); });
-        document.addEventListener('click', (e) => { if (!repoList.contains(e.target) && e.target !== dropdownBtn) repoList.classList.remove('active'); });
+        // 🔥 修复：同时绑定 click 和 touchend，并阻止冒泡，解决移动端无法点击下拉箭头的问题
+        const toggleDropdown = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            repoList.classList.toggle('active');
+        };
+        dropdownBtn.addEventListener('click', toggleDropdown);
+        dropdownBtn.addEventListener('touchend', toggleDropdown);
+        document.addEventListener('click', (e) => { 
+            if (!repoList.contains(e.target) && e.target !== dropdownBtn) {
+                repoList.classList.remove('active'); 
+            }
+        });
         
         document.getElementById('saveConfigBtn').addEventListener('click', saveToken);
         document.getElementById('pullBtn').addEventListener('click', pullFromGit);
@@ -651,6 +780,219 @@
             clearTimeout(previewTimer);
             previewTimer = setTimeout(runValidation, 100); 
         });
+
+        // ===== SQL 保护仓事件绑定 =====
+        document.getElementById('dbProtectBtn').addEventListener('click', openSQLProtectModal);
+        document.getElementById('spCloseBtn').addEventListener('click', () => {
+            document.getElementById('sqlProtectModal').classList.remove('active');
+        });
+        document.getElementById('spUploadBtn').addEventListener('click', uploadToSQLProtect);
+        document.getElementById('spDownloadBtn').addEventListener('click', downloadFromSQLProtect);
+        document.getElementById('spLockBtn').addEventListener('click', () => {
+            if (currentSqlData && currentSqlData.locked) {
+                showSPPasswordOverlay();
+            } else {
+                lockSQLProtect();
+            }
+        });
+        document.getElementById('spModifyBtn').addEventListener('click', () => {
+            document.getElementById('spName').disabled = false;
+            document.getElementById('spPurpose').disabled = false;
+            document.getElementById('spSaveConfigBtn').style.display = 'block';
+            document.getElementById('spModifyBtn').style.display = 'none';
+            document.getElementById('spUploadBtn').disabled = true;
+            document.getElementById('spDownloadBtn').disabled = true;
+        });
+        document.getElementById('spSaveConfigBtn').addEventListener('click', saveSQLConfig);
+        
+        // 密码遮罩相关
+        document.getElementById('spPwdCancel').addEventListener('click', () => {
+            document.getElementById('spPwdOverlay').classList.remove('active');
+        });
+        document.getElementById('spPwdOk').addEventListener('click', () => {
+            const pwd = document.getElementById('spPwdInput').value;
+            if (pwd === 'qiuhua') {
+                document.getElementById('spPwdOverlay').classList.remove('active');
+                document.getElementById('spPwdInput').value = '';
+                unlockSQLProtect();
+            } else {
+                showToast('密码错误', 'error');
+            }
+        });
+        document.getElementById('spPwdInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('spPwdOk').click();
+        });
+    }
+
+    // ==================== SQL 保护仓核心逻辑 ====================
+    let currentSqlData = null;
+    const API_BASE = 'https://qhtvyy.com:3000'; // 确保这行存在，若原来有请不要覆盖这行，这里用作提示
+
+    async function fetchSQLProtectData() {
+        try {
+            const res = await fetch(API_BASE + '/api/get-all-data?t=' + Date.now());
+            const json = await res.json();
+            if (json.success && json.data && json.data['zk_store']) {
+                return typeof json.data['zk_store'] === 'string' ? JSON.parse(json.data['zk_store']) : json.data['zk_store'];
+            }
+        } catch (e) { console.warn('获取保护仓数据失败', e); }
+        return null;
+    }
+
+    // 页面启动时自动拉取一次数据到 currentSqlData，实现跨端同步
+    async function initSQLProtectData() {
+        const data = await fetchSQLProtectData();
+        if (data) {
+            currentSqlData = data;
+            console.log('✅ 已静默同步保护仓数据');
+        }
+    }
+    // 启动时静默执行
+    setTimeout(initSQLProtectData, 1500);
+
+    async function openSQLProtectModal() {
+        document.getElementById('sqlProtectModal').classList.add('active');
+        
+        // 打开时重新拉取一次最新的，防止跨端数据不同步
+        const data = await fetchSQLProtectData();
+        if (data) currentSqlData = data;
+
+        const cfg = getGitConfig();
+        const repoKey = cfg.repo ? `${cfg.owner}/${cfg.repo}` : '未配置';
+
+        if (!currentSqlData) {
+            // 首次生成配置，直接展示可编辑表单
+            currentSqlData = {
+                name: `代码备份_${cfg.repo || '未知'}`,
+                repo: repoKey,
+                purpose: '请填写用途',
+                content: editor.getValue(),
+                locked: false,
+                uploadTime: '暂无',
+                downloadTime: '暂无',
+                opCount: 0
+            };
+            document.getElementById('spName').disabled = false;
+            document.getElementById('spPurpose').disabled = false;
+            document.getElementById('spSaveConfigBtn').style.display = 'block';
+            document.getElementById('spModifyBtn').style.display = 'none';
+            document.getElementById('spUploadBtn').disabled = true;
+            document.getElementById('spDownloadBtn').disabled = true;
+            document.getElementById('spLockBtn').textContent = '🔒 锁定配置';
+            document.getElementById('spStatus').textContent = '🔓 尚未保存';
+            document.getElementById('spStatus').style.color = '#f59e0b';
+        } else {
+            renderSQLProtectUI();
+        }
+        document.getElementById('spName').value = currentSqlData.name;
+        document.getElementById('spPurpose').value = currentSqlData.purpose;
+        document.getElementById('spRepo').textContent = currentSqlData.repo;
+        document.getElementById('spOpCount').textContent = currentSqlData.opCount;
+        document.getElementById('spUploadTime').textContent = currentSqlData.uploadTime;
+        document.getElementById('spDownloadTime').textContent = currentSqlData.downloadTime;
+    }
+
+    function renderSQLProtectUI() {
+        if (!currentSqlData) return;
+        document.getElementById('spName').value = currentSqlData.name;
+        document.getElementById('spPurpose').value = currentSqlData.purpose;
+        document.getElementById('spRepo').textContent = currentSqlData.repo;
+        document.getElementById('spOpCount').textContent = currentSqlData.opCount;
+        document.getElementById('spUploadTime').textContent = currentSqlData.uploadTime;
+        document.getElementById('spDownloadTime').textContent = currentSqlData.downloadTime;
+        
+        const isLocked = currentSqlData.locked;
+        document.getElementById('spName').disabled = true;
+        document.getElementById('spPurpose').disabled = true;
+        document.getElementById('spStatus').textContent = isLocked ? '🔒 已上锁' : '🔓 未上锁';
+        document.getElementById('spStatus').style.color = isLocked ? '#ef4444' : '#16a34a';
+        
+        document.getElementById('spSaveConfigBtn').style.display = 'none';
+        document.getElementById('spModifyBtn').style.display = isLocked ? 'none' : 'block';
+        document.getElementById('spUploadBtn').disabled = isLocked;
+        document.getElementById('spDownloadBtn').disabled = false;
+        document.getElementById('spLockBtn').textContent = isLocked ? '🔒 解锁修改' : '🔓 锁定';
+        document.getElementById('spLockBtn').className = isLocked ? 'sp-btn-warning' : 'sp-btn-primary';
+    }
+
+    async function saveSQLProtectData(data) {
+        try {
+            await fetch(API_BASE + '/api/save-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 'zk_store': data })
+            });
+        } catch (e) { console.warn('SQL保存失败', e); }
+    }
+
+    async function saveSQLConfig() {
+        if (!currentSqlData) return;
+        const name = document.getElementById('spName').value.trim();
+        const purpose = document.getElementById('spPurpose').value.trim();
+        if (!name) return showToast('请输入文件名称', 'error');
+        if (!purpose) return showToast('请输入仓库用途', 'error');
+
+        currentSqlData.name = name;
+        currentSqlData.purpose = purpose;
+        currentSqlData.locked = true; // 保存后自动上锁
+
+        await saveSQLProtectData(currentSqlData);
+        renderSQLProtectUI();
+        showToast('配置已保存并锁定', 'success');
+    }
+
+    async function uploadToSQLProtect() {
+        if (!currentSqlData || currentSqlData.locked) return;
+        const code = editor.getValue();
+        if (!code.trim()) return showToast('代码为空，无法上传', 'error');
+        
+        currentSqlData.content = code;
+        currentSqlData.uploadTime = new Date().toLocaleString('zh-CN');
+        currentSqlData.opCount++;
+        currentSqlData.locked = true; // 修改后自动上锁
+        
+        await saveSQLProtectData(currentSqlData);
+        renderSQLProtectUI();
+        showToast('上传成功，已自动上锁', 'success');
+    }
+
+    async function downloadFromSQLProtect() {
+        if (!currentSqlData || !currentSqlData.content) return showToast('暂无备份内容', 'error');
+        if (!confirm('确定要用数据库中的版本覆盖当前编辑器吗？')) return;
+
+        editor.setValue(currentSqlData.content);
+        windowsData[activeWindowIndex].content = currentSqlData.content;
+        isReadOnly = true; editor.setOption('readOnly', true); updateToggleBtnUI();
+        savePersistedData();
+        runValidation();
+
+        currentSqlData.downloadTime = new Date().toLocaleString('zh-CN');
+        currentSqlData.opCount++;
+        await saveSQLProtectData(currentSqlData);
+        renderSQLProtectUI();
+        showToast('下载覆盖成功', 'success');
+    }
+
+    async function lockSQLProtect() {
+        if (!currentSqlData) return;
+        currentSqlData.locked = true;
+        await saveSQLProtectData(currentSqlData);
+        renderSQLProtectUI();
+        showToast('已锁定', 'success');
+    }
+
+    function showSPPasswordOverlay() {
+        document.getElementById('spPwdInput').value = '';
+        document.getElementById('spPwdOverlay').classList.add('active');
+        setTimeout(() => document.getElementById('spPwdInput').focus(), 100);
+    }
+
+    async function unlockSQLProtect() {
+        if (!currentSqlData) return;
+        currentSqlData.locked = false;
+        await saveSQLProtectData(currentSqlData);
+        renderSQLProtectUI();
+        showToast('已解锁，请点击修改配置', 'success');
     }
     // ================= 核心搜索逻辑 =================
     function doSearch(direction) {
