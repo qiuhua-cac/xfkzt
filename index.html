@@ -1048,24 +1048,32 @@
             currentSqlFiles = [];
         } catch (e) {}
 
-        // 立刻展示空状态（防止视觉卡顿）
-        renderSQLFileList();
+        // 立刻展示“正在加载”的文字提示
+        document.getElementById('spFileListView').style.display = 'flex';
+        document.getElementById('spDetailView').style.display = 'none';
+        document.getElementById('spFileGrid').innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:20px;">正在从服务器同步数据...</div>';
 
         // 4. 强制死等服务器数据，绝不等本地缓存
         try {
             const freshData = await fetchSQLProtectData();
+            // 只要服务器有数据（不管有没有变化），强制给内存赋值
             if (freshData && freshData.length > 0) {
                 currentSqlFiles = freshData;
                 try { localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(freshData)); } catch(e) {}
-                renderSQLFileList(); // 成功拉取，渲染真实数据
             } else {
-                currentSqlFiles = []; // 服务器确实没数据
-                renderSQLFileList();
+                currentSqlFiles = []; 
             }
+            
+            // ★ 核心：无论数据是空还是非空，直接强行重绘一次界面！
+            // 防止由于之前弹窗已经渲染为空，导致新数据没有被展示出来
+            document.getElementById('spFileListView').style.display = 'flex';
+            document.getElementById('spDetailView').style.display = 'none';
+            document.getElementById('spDetailFooter').style.display = 'none';
+            renderSQLFileList(); 
+            
         } catch (e) {
-            // ★ 核心修复：如果是网络失败（报错），不要覆盖原有数据！
+            // 如果是网络失败，保留旧数据，并提示
             console.warn('云端拉取失败，保留本地旧数据', e);
-            // 这里不要置空 currentSqlFiles，而是直接渲染，顺便给个 Toast 提示
             renderSQLFileList();
             showToast('⚠️ 网络异常，无法从服务器同步最新配置', 'error');
         }
