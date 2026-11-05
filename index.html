@@ -1116,12 +1116,14 @@
     }
 
     async function saveSQLProtectData() {
-        // 1. 先存本地缓存，做到秒级保存
+        // 1. 尝试写入本地缓存，爆仓就直接跳过，绝对不阻断服务器上传
         try {
             localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(currentSqlFiles));
-        } catch (e) {}
+        } catch (e) {
+            console.warn('⚠️ 本地缓存空间已满，跳过缓存写入，直接推送服务器');
+        }
 
-        // 2. 后台推送到服务器，绝不等待网络结果影响 UI
+        // 2. 强制推送到服务器（这一步没有 await，点完立刻响应）
         try {
             fetch(API_BASE + '/api/save-data', {
                 method: 'POST',
@@ -1208,20 +1210,20 @@
 
     async function uploadToSQLProtect() {
         if (!currentSqlData) return;
-        // 强制读取当前编辑器里的代码，哪怕只有一个字
+        // 核心修复：强制读取当前编辑器里的代码，哪怕只有 1 个字也上传
         const code = editor.getValue();
         if (!code || !code.trim()) return showToast('当前编辑器代码为空，无法上传', 'error');
         
-        // 核心：直接覆盖当前配置的内容，不管它之前是什么样
+        // 直接覆盖当前配置的内容，不管它之前是什么样、有没有上锁
         currentSqlData.content = code;
         currentSqlData.uploadTime = new Date().toLocaleString('zh-CN');
         currentSqlData.opCount++;
         currentSqlData.locked = true; 
         
-        // 直接落库
-        await saveSQLProtectData();
+        // 直接落库（不再 await 卡死 UI）
+        saveSQLProtectData();
         renderSQLDetailUI();
-        showToast('✅ 已用当前编辑器内容覆盖并上传到 SQL', 'success');
+        showToast('✅ 当前编辑器代码已成功上传覆盖到 SQL', 'success');
     }
 
     async function downloadFromSQLProtect() {
@@ -1450,7 +1452,12 @@
             
             if (JSON.stringify(remoteBackups) !== JSON.stringify(globalCloudBackups)) {
                 globalCloudBackups = remoteBackups;
-                localStorage.setItem('rescue_cloud_backups', JSON.stringify(globalCloudBackups));
+                // 核心修复：强行捕获本地写入报错，不让它阻断后续代码
+                try {
+                    localStorage.setItem('rescue_cloud_backups', JSON.stringify(globalCloudBackups));
+                } catch (e) {
+                    console.warn('⚠️ 云仓库过大，无法保存到本地缓存，但不影响使用');
+                }
                 renderCloudGrid();
                 showToast('☁️ 已同步最新云仓库', 'success');
             }
