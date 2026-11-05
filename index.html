@@ -328,6 +328,7 @@
         display: none; /* 默认电脑端隐藏 */
     }
     @media (max-width: 768px) {
+        /* 历史按钮：小巧贴合，不抢空间 */
         .mobile-repo-btn {
             display: flex;
             align-items: center;
@@ -335,28 +336,59 @@
             width: 32px !important;
             height: 32px !important;
             padding: 0;
-            background: #fff;
+            background: #f8fafc;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
-            font-size: 16px;
+            font-size: 15px;
             color: #3b82f6;
             cursor: pointer;
             flex-shrink: 0;
             z-index: 20;
+            transition: all 0.2s;
         }
         .mobile-repo-btn:active {
             background: #eff6ff;
+            border-color: #3b82f6;
         }
-        /* 移动端隐藏原本小小的 ▼ 箭头 */
+        /* 移动端隐藏原来的 ▼ 箭头 */
         .repo-dropdown-btn {
             display: none !important;
         }
-        /* 适配移动端的历史列表位置，提高层级确保不被其他输入框盖住 */
+        /* 关键：wrapper 必须是 relative 锚点，允许内容 flex 排列，但高度不锁死 */
+        .repo-selector-wrapper {
+            position: relative;
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            width: 100%;
+            min-width: 120px;
+            /* 这里不再限制高度，交给 input 决定 */
+        }
+        .repo-selector-wrapper input {
+            flex: 1 !important;
+            width: 100% !important;
+            height: 34px !important;
+            min-width: 0;
+            padding: 6px 10px !important;
+        }
+        /* 历史列表：绝对定位在输入框正下方，撑开并提升层级 */
         .repo-history-list {
-            top: 100%;
-            margin-top: 4px;
+            position: absolute;
+            top: 100% !important;
+            left: 0;
+            right: 0;
+            width: 100% !important;
+            margin-top: 6px;
             z-index: 99999 !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+            max-height: 200px;
+            background: #fff;
+        }
+        .repo-history-item {
+            padding: 12px 14px;
+            font-size: 13px;
         }
     }
     /* ================================ */
@@ -489,7 +521,7 @@
 <div class="top-bar">
     <div class="config-row">
         <input type="text" id="ghOwner" value="qiuhua-cac" placeholder="用户">
-        <div class="repo-selector-wrapper" style="gap: 4px;">
+        <div class="repo-selector-wrapper">
             <input type="text" id="ghRepo" placeholder="仓库">
             <button class="repo-dropdown-btn" id="repoDropdownBtn">▼</button>
             <!-- 移动端专属：小正方形历史图标 -->
@@ -783,23 +815,30 @@
             });
         }
 
-        // 移动端：仅监听专属“打开历史仓库”按钮
+        // 移动端：专属打开历史仓库按钮
         if (mobileRepoBtn) {
-            mobileRepoBtn.addEventListener('click', (e) => {
+            // 使用 mousedown 和 click 双重绑定，防止移动端 300ms 延迟或点击穿透
+            const toggleRepoList = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 repoList.classList.toggle('active');
-            });
+            };
+            mobileRepoBtn.addEventListener('mousedown', toggleRepoList);
+            mobileRepoBtn.addEventListener('touchstart', toggleRepoList, { passive: false });
+            mobileRepoBtn.addEventListener('click', toggleRepoList);
         }
 
         // 点击页面空白处关闭列表
         document.addEventListener('click', (e) => { 
-            // 如果点击的不是列表内部，也不是触发按钮，也不是小图标内，才关闭
-            if (repoList.classList.contains('active') &&
-                !repoList.contains(e.target) && 
-                e.target !== dropdownBtn && 
-                e.target !== mobileRepoBtn &&
-                !mobileRepoBtn.contains(e.target)) {
+            // 精准判断：点击是否发生在列表内
+            const isInsideList = repoList.contains(e.target);
+            // 精准判断：点击是否发生在电脑端 ▼ 按钮上（及内部子元素）
+            const isDropdownBtn = dropdownBtn && (e.target === dropdownBtn || dropdownBtn.contains(e.target));
+            // 精准判断：点击是否发生在移动端 📜 按钮上（及内部子元素）
+            const isMobileBtn = mobileRepoBtn && (e.target === mobileRepoBtn || mobileRepoBtn.contains(e.target));
+
+            // 只有当列表是开启状态，且点击的【既不是列表内，也不是两个按钮】时，才关闭
+            if (repoList.classList.contains('active') && !isInsideList && !isDropdownBtn && !isMobileBtn) {
                 repoList.classList.remove('active'); 
             }
         });
@@ -954,24 +993,23 @@
     }
 
     async function initSQLProtectData() {
-        // 1. 先从本地缓存极速读取（瞬间加载）
+        // 1. 先从本地缓存极速读取，只要读到就赋值
         try {
             const localCache = localStorage.getItem('rescue_sql_protect_cache');
             if (localCache) {
                 currentSqlFiles = JSON.parse(localCache);
-                console.log('✅ 已从本地缓存极速加载保护仓数据');
+                console.log('✅ 已从本地缓存加载保护仓数据');
             }
         } catch (e) { console.warn('读取本地缓存失败', e); }
 
-        // 2. 后台静默向服务器请求最新数据并更新缓存
-        try {
-            const freshData = await fetchSQLProtectData();
+        // 2. 发起网络请求（不用 await 卡死，后台静默运行）
+        fetchSQLProtectData().then(freshData => {
             if (freshData && freshData.length > 0) {
                 currentSqlFiles = freshData;
                 localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(freshData));
-                console.log('✅ 保护仓云端数据同步成功');
+                console.log('✅ 保护仓云端数据已静默更新');
             }
-        } catch (e) { console.warn('云端同步失败，继续使用本地缓存'); }
+        }).catch(e => { console.warn('云端同步失败，继续使用本地缓存'); });
     }
     // 取消 1.5 秒延迟，页面加载 DOM 完成后立即请求，提前把数据拿到内存里
     document.addEventListener('DOMContentLoaded', () => {
@@ -985,8 +1023,17 @@
         
         // 1. 立即渲染界面，消除任何等待感
         document.getElementById('sqlProtectModal').classList.add('active');
+
+        // 2. 拦截所有冒泡（防止触摸事件穿透到底层引发闪退）
+        const modal = document.getElementById('sqlProtectModal');
+        const stopEvent = (e) => { e.stopPropagation(); };
+        // 先移除旧监听，防止重复绑定
+        modal.removeEventListener('touchstart', stopEvent);
+        modal.removeEventListener('mousedown', stopEvent);
+        modal.addEventListener('touchstart', stopEvent, { passive: true });
+        modal.addEventListener('mousedown', stopEvent, { passive: true });
         
-        // ★ 核心升级：点开的瞬间，直接使用本地缓存渲染，绝不出现“正在同步”字样
+        // 3. 先尝试读取本地缓存，只要有一点点数据或者空，都立刻强行渲染，绝不等待网络
         try {
             const localCache = localStorage.getItem('rescue_sql_protect_cache');
             if (localCache) {
@@ -994,32 +1041,20 @@
             }
         } catch (e) {}
 
-        // 如果内存或缓存里有数据，立刻展示
-        if (currentSqlFiles && currentSqlFiles.length > 0) {
-            renderSQLFileList();
-        } else {
-            // 如果本地彻底没数据，展示空状态让用户去点 ⚙️ 设置
-            renderSQLFileList();
-        }
+        // ★ 重点：马上先渲染一次！让界面秒出
+        renderSQLFileList();
 
-        // 2. 拦截所有冒泡（防止触摸事件穿透到底层引发闪退）
-        const modal = document.getElementById('sqlProtectModal');
-        const stopEvent = (e) => { e.stopPropagation(); };
-        modal.addEventListener('touchstart', stopEvent, { passive: true });
-        modal.addEventListener('mousedown', stopEvent, { passive: true });
-
-        // 3. 后台静默拉取最新数据，拉到了就更新，拉不到也不报错
-        try {
-            const freshData = await fetchSQLProtectData();
-            // 如果从服务器拉取到了新数据，且和本地不一样，就刷新界面
-            if (freshData && freshData.length > 0) {
+        // 4. 后台悄悄去服务器拉取，拉到了再刷新，拉不到就在后台报个错，绝不影响前面的界面
+        fetchSQLProtectData().then(freshData => {
+            // 如果拉回来的数据有效，且和当前显示的不一样，就重绘一次
+            if (freshData && JSON.stringify(freshData) !== JSON.stringify(currentSqlFiles)) {
                 currentSqlFiles = freshData;
                 localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(freshData));
                 renderSQLFileList();
             }
-        } catch (e) {
-            console.warn('后台同步失败，继续使用本地缓存数据', e);
-        }
+        }).catch(e => {
+            console.warn('后台静默同步失败，继续使用本地缓存', e);
+        });
     }
 
     function renderSQLFileList() {
@@ -1086,14 +1121,14 @@
             localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(currentSqlFiles));
         } catch (e) {}
 
-        // 2. 后台推送到服务器
+        // 2. 后台推送到服务器，绝不等待网络结果影响 UI
         try {
-            await fetch(API_BASE + '/api/save-data', {
+            fetch(API_BASE + '/api/save-data', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 'zk_store': currentSqlFiles })
-            });
-        } catch (e) { console.warn('SQL保存失败', e); }
+            }).catch(e => console.warn('SQL后台保存失败', e));
+        } catch (e) { console.warn('SQL保存异常', e); }
     }
 
     // 点击设置按钮：进入新建草稿，唯一入口
