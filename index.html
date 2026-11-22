@@ -486,7 +486,7 @@
         <!-- 底部按钮区（仅在详情页显示） -->
         <div class="sp-footer" id="spDetailFooter" style="display:none;">
             <button class="sp-btn-primary" id="spSaveConfigBtn" style="display:none;">💾 保存配置</button>
-            <button class="sp-btn-primary" id="spUploadBtn" disabled>📤 上传到 SQL</button>
+            <button class="sp-btn-primary" id="spUploadBtn" disabled>📤 上传到保护仓</button>
             <button class="sp-btn-secondary" id="spDownloadBtn">📥 下载并覆盖</button>
             <button class="sp-btn-warning" id="spLockBtn">🔓 解锁修改</button>
             <button class="sp-btn-secondary" id="spModifyBtn" style="display:none;">✏️ 修改配置</button>
@@ -734,7 +734,7 @@
         setupDropZone();
         startAutoHistory();
         
-        // 启动时拉取一次远程云仓库
+        // 启动时拉取一次远程云仓库与窗口数据（双端共用一份）
         setTimeout(() => { pullCloudFromGit(); }, 1000);
     });
 
@@ -992,30 +992,42 @@
     const GH_REPO  = 'xfkzt';
     const GH_PATH  = 'index.html';
     const BACKUP_FILE = '.gitconsole_backups.json';
+    const SQL_PROTECT_FILE = 'sql-protect.json'; // 数据库保护仓：AT 仓独立存储一份
     const REMOTE_KEY = 'xfkzt_active_remote'; // 'at' | 'git'，默认 at
 
-    const API_BASE = 'https://qhtvyy.com:3000';
+    // —— 旧 qhtvyy 保护仓后端已封死注释，运行时不再调用（存档不删除） ——
+    // const API_BASE = 'https://qhtvyy.com:3000';
+
+    // 旧 qhtvyy 拉取接口（已封死存档，不再运行时调用）
+    // async function fetchSQLProtectData() {
+    //     try {
+    //         const res = await fetch(API_BASE + '/api/get-all-data?t=' + Date.now(), { cache: 'no-store' });
+    //         if (!res.ok) throw new Error('服务器状态码: ' + res.status);
+    //         const json = await res.json();
+    //         if (json.success && json.data && json.data['zk_store']) {
+    //             let data = typeof json.data['zk_store'] === 'string' ? JSON.parse(json.data['zk_store']) : json.data['zk_store'];
+    //             return JSON.parse(JSON.stringify(Array.isArray(data) ? data : [data]));
+    //         }
+    //         return [];
+    //     } catch (e) { console.warn('获取保护仓数据失败', e); throw e; }
+    // }
 
     async function fetchSQLProtectData() {
-        try {
-            // 核心修复：去掉所有的 headers，只保留 cache: 'no-store'
-            // 这样浏览器就不会触发任何 CORS 预检拦截
-            const res = await fetch(API_BASE + '/api/get-all-data?t=' + Date.now(), {
-                cache: 'no-store'
-            });
-            
-            if (!res.ok) throw new Error('服务器状态码: ' + res.status);
-            const json = await res.json();
-            
-            if (json.success && json.data && json.data['zk_store']) {
-                let data = typeof json.data['zk_store'] === 'string' ? JSON.parse(json.data['zk_store']) : json.data['zk_store'];
-                return JSON.parse(JSON.stringify(Array.isArray(data) ? data : [data])); 
-            }
-            return [];
-        } catch (e) { 
-            console.warn('获取保护仓数据失败', e); 
-            throw e; 
+        // 从 AT 仓独立文件 sql-protect.json 拉取保护仓数据；404 视为空仓
+        const apiBase = `https://api.atomgit.com/api/v5/repos/${AT_OWNER}/${AT_REPO}/contents/${SQL_PROTECT_FILE}`;
+        const headers = { 'Authorization': `Bearer ${AT_TOKEN}`, 'Accept': 'application/json' };
+        const res = await fetch(apiBase, { headers, cache: 'no-store' });
+        if (res.status === 404) return [];
+        if (!res.ok) throw new Error('AT 保护仓状态码: ' + res.status);
+        const json = await res.json();
+        let text = json.content ? base64ToUtf8(json.content) : '';
+        if (!text && json.download_url) {
+            const r = await fetch(json.download_url, { cache: 'no-store' });
+            text = await r.text();
         }
+        let data = JSON.parse(text || '[]');
+        if (data && data.zk_store !== undefined) data = data.zk_store;
+        return JSON.parse(JSON.stringify(Array.isArray(data) ? data : [data]));
     }
 
     async function initSQLProtectData() {
@@ -1149,22 +1161,51 @@
         document.getElementById('spLockBtn').className = isLocked ? 'sp-btn-warning' : 'sp-btn-primary';
     }
 
+    // 旧 qhtvyy 保存接口（已封死存档，不再运行时调用）
+    // async function saveSQLProtectData() {
+    //     try { localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(currentSqlFiles)); } catch (e) { console.warn('本地缓存已满'); }
+    //     try {
+    //         fetch(API_BASE + '/api/save-data', {
+    //             method: 'POST',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify({ 'zk_store': currentSqlFiles })
+    //         }).catch(e => console.warn('SQL后台保存失败', e));
+    //     } catch (e) { console.warn('SQL保存异常', e); }
+    // }
+
+    // 覆盖写入 AT 仓独立文件 sql-protect.json
+    async function pushSqlProtectToAt() {
+        const apiBase = `https://api.atomgit.com/api/v5/repos/${AT_OWNER}/${AT_REPO}/contents/${SQL_PROTECT_FILE}`;
+        const headers = { 'Authorization': `Bearer ${AT_TOKEN}`, 'Accept': 'application/json', 'Content-Type': 'application/json' };
+        const payload = { zk_store: currentSqlFiles };
+        const contentB64 = utf8ToBase64(JSON.stringify(payload, null, 2));
+        let sha = null, exists = false;
+        const g = await fetch(apiBase, { method: 'GET', headers });
+        if (g.ok) { const d = await g.json(); sha = d.sha; exists = true; }
+        else if (g.status !== 404) throw new Error('获取保护仓 SHA 失败: ' + g.status);
+        const body = {
+            message: `🔒 保护仓同步 ${new Date().toLocaleString('zh-CN')}`,
+            content: contentB64,
+            branch: 'main'
+        };
+        if (sha) body.sha = sha;
+        const r = await fetch(apiBase, { method: exists ? 'PUT' : 'POST', headers, body: JSON.stringify(body) });
+        if (!r.ok) throw new Error('保护仓推送失败: ' + r.status);
+    }
+
     async function saveSQLProtectData() {
-        // 1. 尝试写入本地缓存，爆仓就直接跳过，绝对不阻断服务器上传
+        // 1. 本地缓存极速首读，爆仓跳过
         try {
             localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(currentSqlFiles));
         } catch (e) {
-            console.warn('⚠️ 本地缓存空间已满，跳过缓存写入，直接推送服务器');
+            console.warn('⚠️ 本地缓存空间已满，跳过缓存写入');
         }
-
-        // 2. 强制推送到服务器（这一步没有 await，点完立刻响应）
+        // 2. 覆盖存入 AT 仓独立文件（独立存储一份，不与云仓备份混用）
         try {
-            fetch(API_BASE + '/api/save-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 'zk_store': currentSqlFiles })
-            }).catch(e => console.warn('SQL后台保存失败', e));
-        } catch (e) { console.warn('SQL保存异常', e); }
+            await pushSqlProtectToAt();
+        } catch (e) {
+            console.warn('⚠️ AT 保护仓保存失败', e);
+        }
     }
 
     // 点击设置按钮：进入新建草稿，唯一入口
@@ -1257,7 +1298,7 @@
         // 直接落库（不再 await 卡死 UI）
         saveSQLProtectData();
         renderSQLDetailUI();
-        showToast('✅ 当前编辑器代码已成功上传覆盖到 SQL', 'success');
+        showToast('✅ 当前编辑器代码已成功上传覆盖到保护仓', 'success');
     }
 
     async function downloadFromSQLProtect() {
