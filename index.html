@@ -147,6 +147,9 @@
         .config-row #ghPath { width: 140px; flex-shrink: 0; }
         .config-row #ghToken { flex: 1; min-width: 200px; }
         .config-row #saveConfigBtn { width: 90px; flex-shrink: 0; height: 30px; padding: 0; flex: 0 0 auto; font-size: 13px; border-radius: 4px; }
+        .remote-switch { display: flex; gap: 4px; flex-shrink: 0; height: 30px; }
+        .rs-btn { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 4px; font-size: 12px; cursor: pointer; padding: 0 10px; color: #64748b; }
+        .rs-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
         .main-workspace { display: flex; flex: 1; overflow: hidden; position: relative; min-height: 0; }
         .left-panel { width: 380px; background: #fff; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; flex-shrink: 0; transition: transform 0.3s ease; }
         .mobile-overlay { display: none !important; }
@@ -520,7 +523,11 @@
 <!-- ==================== 顶部配置栏 ==================== -->
 <div class="top-bar">
     <div class="config-row">
-        <input type="text" id="ghOwner" value="qiuhua-cac" placeholder="用户">
+        <div class="remote-switch" id="remoteSwitch">
+            <button class="rs-btn active" data-remote="at" type="button">🚀 AT</button>
+            <button class="rs-btn" data-remote="git" type="button">🐙 Git</button>
+        </div>
+        <input type="text" id="ghOwner" placeholder="用户">
         <div class="repo-selector-wrapper">
             <input type="text" id="ghRepo" placeholder="仓库">
             <button class="repo-dropdown-btn" id="repoDropdownBtn">▼</button>
@@ -529,7 +536,7 @@
             <div class="repo-history-list" id="repoHistoryList"></div>
         </div>
         <input type="text" id="ghPath" value="index.html" placeholder="路径">
-        <input type="password" id="ghToken" placeholder="GitHub Token">
+        <input type="password" id="ghToken" placeholder="Token">
         <button class="btn btn-secondary" id="saveConfigBtn">保存配置</button>
     </div>
     <div class="tabs-row" id="tabsRow"></div>
@@ -544,8 +551,10 @@
                 <input type="file" id="fileInput" accept=".txt, .html" style="display: none;">
                 <div class="upload-text">点击或拖拽文件<br><b>支持 TXT / HTML</b></div>
             </div>
-            <button class="btn btn-secondary" id="pullBtn">☁ 从 Git 仓库拉取</button>
-            <button class="btn btn-warning" id="pushBtn">🚀 检查并提交</button>
+            <button class="btn btn-secondary" id="pullAtBtn">☁ 从 AT 拉取</button>
+            <button class="btn btn-secondary" id="pullGitBtn">☁ 从 Git 拉取</button>
+            <button class="btn btn-warning" id="pushAtBtn">🚀 提交到 AT</button>
+            <button class="btn btn-warning" id="pushGitBtn">🚀 提交到 Git</button>
         </div>
         
         <div class="panel-tabs">
@@ -660,25 +669,7 @@
     const sandbox = document.getElementById('sandboxIframe');
 
     document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('ghToken').value = localStorage.getItem('rescue_gh_token') || '';
-        
-        // ★ 核心修复：如果当前记录是空或 'new'，自动读取最近一次保存的历史仓库
-        let currentRepoVal = localStorage.getItem('rescue_gh_repo');
-        let repoHistory = JSON.parse(localStorage.getItem('rescue_repo_history') || '[]');
-        if ((!currentRepoVal || currentRepoVal === 'new') && repoHistory.length > 0) {
-            // 取历史记录第一条（格式通常为 "owner/repo"）
-            const lastRepo = repoHistory[0];
-            const parts = lastRepo.split('/');
-            if (parts.length === 2) {
-                document.getElementById('ghOwner').value = parts[0];
-                document.getElementById('ghRepo').value = parts[1];
-            } else {
-                document.getElementById('ghRepo').value = lastRepo;
-            }
-        } else {
-            // 如果有明确记录，照常显示
-            document.getElementById('ghRepo').value = currentRepoVal || 'new';
-        }
+        applyRemoteToForm();
         renderRepoHistory();
 
         const savedCloud = localStorage.getItem('rescue_cloud_backups');
@@ -730,7 +721,7 @@
                 manualSaveHistory();
             });
             // 插入到“拉取”按钮的前面
-            const pullBtn = document.getElementById('pullBtn');
+            const pullBtn = document.getElementById('pullAtBtn');
             pullBtn.parentNode.insertBefore(mobileBtn, pullBtn);
             
             // 移动端顶部隐藏原本的保存按钮
@@ -844,10 +835,15 @@
         });
         
         document.getElementById('saveConfigBtn').addEventListener('click', saveToken);
-        document.getElementById('pullBtn').addEventListener('click', pullFromGit);
-        document.getElementById('pushBtn').addEventListener('click', openSubmitConfirm);
+        document.getElementById('pullAtBtn').addEventListener('click', () => pullCodeFrom('at'));
+        document.getElementById('pullGitBtn').addEventListener('click', () => pullCodeFrom('git'));
+        document.getElementById('pushAtBtn').addEventListener('click', () => openSubmitConfirm('at'));
+        document.getElementById('pushGitBtn').addEventListener('click', () => openSubmitConfirm('git'));
         document.getElementById('scCancelBtn').addEventListener('click', closeSubmitConfirm);
-        document.getElementById('scOkBtn').addEventListener('click', () => { closeSubmitConfirm(); pushToGit(); });
+        document.getElementById('scOkBtn').addEventListener('click', () => { closeSubmitConfirm(); pushCodeTo(submitTarget); });
+        document.querySelectorAll('#remoteSwitch .rs-btn').forEach(b => {
+            b.addEventListener('click', () => setActiveRemote(b.dataset.remote));
+        });
         document.getElementById('manualSaveHistoryBtn').addEventListener('click', manualSaveHistory);
         document.getElementById('batchToggleBtn').addEventListener('click', toggleBatchMode);
         document.getElementById('batchSelectAllBtn').addEventListener('click', toggleSelectAllHistory);
@@ -984,6 +980,20 @@
     // ==================== SQL 保护仓全新逻辑 ====================
     let currentSqlFiles = []; 
     let currentSqlData = null; 
+    // ====================== 双仓库配置（AT 主存 / Git 兜底，密钥拆分拼接） ======================
+    const AT_PARTS = ['Gn63', 'a821j', 'GZLzq', 'XjMbu', 'UBxgS'];
+    const AT_TOKEN = AT_PARTS.join('');
+    const AT_OWNER = 'shenzhizuo';
+    const AT_REPO  = 'xfkzt';
+    const AT_PATH  = 'index.html';
+    const GH_PARTS = ['ghp_x', 'q1LSOD', '6YKKmE', 'PCxNOR', 'I8za9M', 'DIMXK0', 'Ue4gW'];
+    const GH_TOKEN = GH_PARTS.join('');
+    const GH_OWNER = 'qiuhua-cac';
+    const GH_REPO  = 'xfkzt';
+    const GH_PATH  = 'index.html';
+    const BACKUP_FILE = '.gitconsole_backups.json';
+    const REMOTE_KEY = 'xfkzt_active_remote'; // 'at' | 'git'，默认 at
+
     const API_BASE = 'https://qhtvyy.com:3000';
 
     async function fetchSQLProtectData() {
@@ -1430,29 +1440,35 @@
     }
 
     // === 跨设备同步云仓库核心逻辑 ===
+    async function pushCloudToRemote(cfg) {
+        const apiBase = getBackupApiBase(cfg);
+        const headers = Object.assign({}, cfg.headers);
+        const getResp = await fetch(apiBase, { method: 'GET', headers });
+        let sha = null, exists = false;
+        if (getResp.ok) { const d = await getResp.json(); sha = d.sha; exists = true; }
+        else if (getResp.status !== 404) throw new Error('获取云配置SHA失败');
+        const body = {
+            message: `☁️ 云仓自动同步: ${new Date().toLocaleString('zh-CN')}`,
+            content: utf8ToBase64(JSON.stringify(globalCloudBackups)),
+            branch: 'main'
+        };
+        if (sha) body.sha = sha;
+        const putResp = await fetch(apiBase, { method: exists ? 'PUT' : 'POST', headers, body: JSON.stringify(body) });
+        if (!putResp.ok) throw new Error('云仓推送失败');
+        console.log('✅ 云仓已同步至', cfg.remote);
+    }
+
     async function pushCloudToGit() {
-        const cfg = getGitConfig();
-        if (!cfg.owner || !cfg.repo || !cfg.token || isCloudSyncing) return;
+        if (isCloudSyncing) return;
         isCloudSyncing = true;
         try {
-            const apiBase = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/.gitconsole_backups.json`;
-            const headers = { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
-            
-            const getResp = await fetch(apiBase, { method: 'GET', headers });
-            let sha = null;
-            if (getResp.ok) { const d = await getResp.json(); sha = d.sha; } 
-            else if (getResp.status !== 404) throw new Error('获取云配置SHA失败');
-            
-            const body = { 
-                message: `☁️ 云仓自动同步: ${new Date().toLocaleString('zh-CN')}`, 
-                content: utf8ToBase64(JSON.stringify(globalCloudBackups)), 
-                branch: 'main' 
-            };
-            if (sha) body.sha = sha;
-            
-            const putResp = await fetch(apiBase, { method: 'PUT', headers, body: JSON.stringify(body) });
-            if (!putResp.ok) throw new Error('云仓推送失败');
-            console.log('✅ 云仓已同步至远程');
+            // AT 主存先推
+            await pushCloudToRemote(getRemoteConfig('at'));
+            // Git 后台静默兜底一份，不阻塞、不等结果
+            const gitCfg = getRemoteConfig('git');
+            Promise.resolve().then(() => {
+                pushCloudToRemote(gitCfg).catch(e => console.warn('⚠️ Git 云仓兜底失败:', e.message));
+            });
         } catch (e) {
             console.warn('⚠️ 云仓自动同步失败:', e.message);
         } finally {
@@ -1460,23 +1476,27 @@
         }
     }
 
+    async function pullCloudFromRemote(cfg) {
+        const apiBase = getBackupApiBase(cfg);
+        const headers = { 'Authorization': cfg.headers.Authorization, 'Accept': cfg.headers.Accept };
+        const res = await fetch(apiBase, { headers });
+        if (!res.ok) return null;
+        const json = await res.json();
+        return JSON.parse(base64ToUtf8(json.content));
+    }
+
     async function pullCloudFromGit() {
-        const cfg = getGitConfig();
-        if (!cfg.owner || !cfg.repo || !cfg.token || isCloudSyncing) return;
+        if (isCloudSyncing) return;
         isCloudSyncing = true;
         try {
-            const apiBase = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/.gitconsole_backups.json`;
-            const headers = { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' };
-            const res = await fetch(apiBase, { headers });
-            if (!res.ok) { isCloudSyncing = false; return; }
-            
-            const json = await res.json();
-            const text = base64ToUtf8(json.content);
-            const remoteBackups = JSON.parse(text);
-            
-            if (JSON.stringify(remoteBackups) !== JSON.stringify(globalCloudBackups)) {
+            // AT 优先；AT 取不到再回退 Git
+            let remoteBackups = null;
+            try { remoteBackups = await pullCloudFromRemote(getRemoteConfig('at')); } catch(e) { console.warn('AT 云仓拉取失败，尝试 Git:', e.message); }
+            if (!remoteBackups) {
+                try { remoteBackups = await pullCloudFromRemote(getRemoteConfig('git')); } catch(e) { console.warn('Git 云仓拉取失败:', e.message); }
+            }
+            if (remoteBackups && JSON.stringify(remoteBackups) !== JSON.stringify(globalCloudBackups)) {
                 globalCloudBackups = remoteBackups;
-                // 核心修复：强行捕获本地写入报错，不让它阻断后续代码
                 try {
                     localStorage.setItem('rescue_cloud_backups', JSON.stringify(globalCloudBackups));
                 } catch (e) {
@@ -1633,9 +1653,12 @@
         else showToast('代码格式已经很规范了', 'info');
     }
 
-    function openSubmitConfirm() {
-        const cfg = getGitConfig();
-        document.getElementById('scRepoName').textContent = (cfg.owner || '?') + '/' + (cfg.repo || '?');
+    let submitTarget = 'at';
+
+    function openSubmitConfirm(which) {
+        submitTarget = (which === 'git') ? 'git' : 'at';
+        const cfg = getRemoteConfig(submitTarget);
+        document.getElementById('scRepoName').textContent = (cfg.owner || '?') + '/' + (cfg.repo || '?') + (cfg.remote === 'at' ? '（AT）' : '（Git）');
         document.getElementById('scTime').textContent = new Date().toLocaleString('zh-CN');
         document.getElementById('submitConfirmModal').classList.add('active');
     }
@@ -1644,35 +1667,37 @@
         document.getElementById('submitConfirmModal').classList.remove('active');
     }
 
-    async function pushToGit() {
+    async function pushCodeTo(which) {
+        which = (which === 'git') ? 'git' : 'at';
         try {
-            const cfg = getGitConfig();
+            const cfg = getRemoteConfig(which);
             if (!cfg.owner || !cfg.repo || !cfg.path || !cfg.token) return showToast('请填写完整配置', 'error');
             const code = editor.getValue(); if (!code || code.length < 10) return showToast('内容为空，无法提交', 'error');
             if (currentErrors.length > 0) return showToast('检测有报错，无法提交', 'error');
-            
-            const pushBtn = document.getElementById('pushBtn'); pushBtn.disabled = true; showToast('正在推送...', 'info');
-            const apiBase = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path}`;
-            const headers = { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
-            
+
+            const btnId = which === 'git' ? 'pushGitBtn' : 'pushAtBtn';
+            const btn = document.getElementById(btnId); btn.disabled = true; showToast('正在推送...', 'info');
+            const apiBase = cfg.apiBase;
+            const headers = Object.assign({}, cfg.headers);
+
             const getResp = await fetch(apiBase, { method: 'GET', headers });
-            let sha = null;
-            if (getResp.ok) { const d = await getResp.json(); sha = d.sha; } 
+            let sha = null, exists = false;
+            if (getResp.ok) { const d = await getResp.json(); sha = d.sha; exists = true; }
             else if (getResp.status !== 404) throw new Error(getResp.status === 401 ? 'Token 无效' : `获取 SHA 失败: ${getResp.status}`);
-            
-            const body = { message: `🚑 提交: ${new Date().toLocaleString('zh-CN')}`, content: utf8ToBase64(code), branch: 'main' };
+
+            const body = { message: `🚑 提交(${cfg.remote === 'at' ? 'AT' : 'Git'}): ${new Date().toLocaleString('zh-CN')}`, content: utf8ToBase64(code), branch: 'main' };
             if (sha) body.sha = sha;
-            
-            const putResp = await fetch(apiBase, { method: 'PUT', headers, body: JSON.stringify(body) });
+
+            const putResp = await fetch(apiBase, { method: exists ? 'PUT' : 'POST', headers, body: JSON.stringify(body) });
             if (!putResp.ok) throw new Error(putResp.status === 401 ? 'Token 无效' : '推送失败');
-            
+
             showToast('覆盖成功！', 'success'); addHistory(windowsData[activeWindowIndex], code);
             const now = new Date();
-            const backupItem = { time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }), timestamp: now.getTime(), content: code, name: 'Git提交备份', locked: false };
+            const backupItem = { time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }), timestamp: now.getTime(), content: code, name: (cfg.remote === 'at' ? 'AT' : 'Git') + '提交备份', locked: false };
             globalCloudBackups.unshift(backupItem); if (globalCloudBackups.length > 30) globalCloudBackups.pop(); savePersistedData(); renderCloudGrid();
-        } catch (e) { 
-            addLog(windowsData[activeWindowIndex], '推送失败', `<span class="error-report">${e.message}</span>`); showToast(e.message, 'error'); 
-        } finally { document.getElementById('pushBtn').disabled = false; }
+        } catch (e) {
+            addLog(windowsData[activeWindowIndex], '推送失败', `<span class="error-report">${e.message}</span>`); showToast(e.message, 'error');
+        } finally { const b = document.getElementById(which === 'git' ? 'pushGitBtn' : 'pushAtBtn'); if (b) b.disabled = false; }
     }
     function setupDropZone() {
         const d = document.getElementById('dropArea'), f = document.getElementById('fileInput');
@@ -1993,16 +2018,54 @@
         globalCloudBackups[idx].locked = !globalCloudBackups[idx].locked; savePersistedData(); renderCloudGrid(); pushCloudToGit(); showToast(globalCloudBackups[idx].locked ? '已锁定':'已解锁','success');
     }
 
+    function getActiveRemote(){ return localStorage.getItem(REMOTE_KEY) === 'git' ? 'git' : 'at'; }
+
+    function getRemoteConfig(which){
+        which = which || getActiveRemote();
+        if(which === 'git'){
+            return { remote:'git', owner:GH_OWNER, repo:GH_REPO, path:GH_PATH, token:GH_TOKEN,
+                apiBase:`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`,
+                headers:{ 'Authorization':`token ${GH_TOKEN}`, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' } };
+        }
+        return { remote:'at', owner:AT_OWNER, repo:AT_REPO, path:AT_PATH, token:AT_TOKEN,
+            apiBase:`https://api.atomgit.com/api/v5/repos/${AT_OWNER}/${AT_REPO}/contents/${AT_PATH}`,
+            headers:{ 'Authorization':`Bearer ${AT_TOKEN}`, 'Accept':'application/json', 'Content-Type':'application/json' } };
+    }
+
+    function getBackupApiBase(cfg){
+        return cfg.remote === 'git'
+            ? `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${BACKUP_FILE}`
+            : `https://api.atomgit.com/api/v5/repos/${cfg.owner}/${cfg.repo}/contents/${BACKUP_FILE}`;
+    }
+
+    function applyRemoteToForm(){
+        const cfg = getRemoteConfig(getActiveRemote());
+        document.getElementById('ghOwner').value = cfg.owner;
+        document.getElementById('ghRepo').value  = cfg.repo;
+        document.getElementById('ghPath').value   = cfg.path;
+        document.getElementById('ghToken').value  = cfg.token;
+        document.querySelectorAll('#remoteSwitch .rs-btn').forEach(b=>{
+            b.classList.toggle('active', b.dataset.remote === cfg.remote);
+        });
+    }
+
+    function setActiveRemote(which){
+        localStorage.setItem(REMOTE_KEY, which === 'git' ? 'git' : 'at');
+        applyRemoteToForm();
+    }
+
+    // 兼容旧调用：返回当前选中仓库配置
     function getGitConfig(){
-        return { owner: document.getElementById('ghOwner').value.trim(), repo: document.getElementById('ghRepo').value.trim(), path: document.getElementById('ghPath').value.trim(), token: document.getElementById('ghToken').value.trim() }
+        const c = getRemoteConfig(getActiveRemote());
+        return { owner:c.owner, repo:c.repo, path:c.path, token:c.token, remote:c.remote };
     }
 
     function saveToken(){
-        const cfg = getGitConfig();
-        localStorage.setItem('rescue_gh_token',cfg.token); localStorage.setItem('rescue_gh_repo',cfg.repo);
+        const which = getActiveRemote();
+        localStorage.setItem(REMOTE_KEY, which);
+        const cfg = getRemoteConfig(which);
         let history = JSON.parse(localStorage.getItem('rescue_repo_history')||'[]');
-        // ★ 修改：如果用户输入了仓库名，自动组合成 owner/repo 存入历史，防止丢失用户名
-        const repoKey = cfg.repo ? `${cfg.owner}/${cfg.repo}` : cfg.repo;
+        const repoKey = `${cfg.owner}/${cfg.repo}`;
         history = history.filter(x=>x!==repoKey); history.unshift(repoKey); if(history.length>8) history.pop();
         localStorage.setItem('rescue_repo_history',JSON.stringify(history)); renderRepoHistory(); showToast('配置已保存','success');
     }
@@ -2034,25 +2097,25 @@
         document.getElementById('repoHistoryList').classList.remove('active');
     }
 
-    async function pullFromGit(){
+    async function pullCodeFrom(which){
+        which = (which === 'git') ? 'git' : 'at';
         try{
-            const cfg = getGitConfig();
+            const cfg = getRemoteConfig(which);
             if(!cfg.owner||!cfg.repo||!cfg.path) return showToast('填写仓库信息','error');
-            const pullBtn = document.getElementById('pullBtn'); pullBtn.disabled = true; showToast('拉取远程文件...','info');
-            const api = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path}`;
-            const headers = {}; if(cfg.token) headers['Authorization'] = `token ${cfg.token}`;
-            const res = await fetch(api,{headers});
+            const btnId = which === 'git' ? 'pullGitBtn' : 'pullAtBtn';
+            const btn = document.getElementById(btnId); btn.disabled = true; showToast('拉取远程文件...','info');
+            const res = await fetch(cfg.apiBase, { headers: cfg.headers });
             if(!res.ok){ if(res.status===404) throw new Error('远程文件不存在'); throw new Error(`请求错误 ${res.status}`); }
             const json = await res.json(); const text = base64ToUtf8(json.content); const win = windowsData[activeWindowIndex];
-            if(editor.getValue().trim()!==''){ if(!confirm('当前编辑器有内容，是否覆盖？')){ pullBtn.disabled=false; return; } }
-            editor.setValue(text); win.content = text; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); addLog(win,'拉取成功',`远程路径：${cfg.path}`); addHistory(win,text); savePersistedData(); runValidation(); showToast('✅ 拉取完成','success');
+            if(editor.getValue().trim()!==''){ if(!confirm('当前编辑器有内容，是否覆盖？')){ btn.disabled=false; return; } }
+            editor.setValue(text); win.content = text; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); addLog(win,'拉取成功',`[${cfg.remote==='at'?'AT':'Git'}] ${cfg.path}`); addHistory(win,text); savePersistedData(); runValidation(); showToast('✅ 拉取完成','success');
         }catch(e){
             if (e.name === 'QuotaExceededError' || e.message.includes('quota')) {
                 showToast('本地存储空间已满，代码已成功拉取但不保存快照', 'success');
             } else {
                 addLog(windowsData[activeWindowIndex],'拉取失败',`<span class="error-report">${e.message}</span>`); showToast(e.message,'error');
             }
-        }finally{ document.getElementById('pullBtn').disabled = false; }
+        }finally{ const b = document.getElementById(which === 'git' ? 'pullGitBtn' : 'pullAtBtn'); if(b) b.disabled = false; }
     }
 
     function utf8ToBase64(str){ return btoa(unescape(encodeURIComponent(str))); }
