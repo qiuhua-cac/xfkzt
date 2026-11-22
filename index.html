@@ -262,7 +262,7 @@
     /* ===== SQL 数据库保护仓全清版 ===== */
     .sql-protect-modal { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); z-index: 100000; align-items: center; justify-content: center; padding: 16px; }
     .sql-protect-modal.active { display: flex; }
-    .sql-protect-box { background: #fff; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); width: 460px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+    .sql-protect-box { background: #fff; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); width: 520px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; position: relative; }
     
     .sp-header { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; flex-shrink: 0; }
     .sp-header h3 { font-size: 16px; color: #1e293b; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 8px; }
@@ -270,17 +270,17 @@
     .sp-icon-btn { cursor: pointer; color: #64748b; font-size: 16px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: 0.2s; background: #fff; border: 1px solid #cbd5e1; }
     .sp-icon-btn:hover { background: #e2e8f0; color: #1e293b; }
     
-    .sp-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; }
+    .sp-body { padding: 20px; width: 100%; box-sizing: border-box; overflow-y: auto; overflow-x: hidden; flex: 1; display: flex; flex-direction: column; }
     .sp-empty { text-align: center; color: #94a3b8; font-size: 13px; padding: 40px 0; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     
     /* 文件卡片网格 */
-    .sp-file-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .sp-file-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: 0.2s; position: relative; }
+    .sp-file-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: 100%; min-width: 0; }
+    .sp-file-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 12px; width: 100%; min-width: 0; min-height: 152px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; transition: 0.2s; position: relative; }
     .sp-file-card:hover { border-color: #3b82f6; background: #eff6ff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.1); }
     .sp-file-card .icon { font-size: 32px; margin-bottom: 8px; }
-    .sp-file-card .name { font-size: 13px; font-weight: 600; color: #1e293b; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sp-file-card .repo { font-size: 11px; color: #64748b; margin-top: 4px; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sp-file-card .purpose { font-size: 11px; color: #60a5fa; margin-top: 3px; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-file-card .name { font-size: 13px; font-weight: 600; color: #1e293b; text-align: center; width: 100%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-file-card .repo { font-size: 11px; color: #64748b; text-align: center; width: 100%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-file-card .purpose { font-size: 11px; color: #60a5fa; text-align: center; width: 100%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sp-file-card .lock { position: absolute; top: 8px; right: 8px; font-size: 14px; }
     .sp-tab-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
     .sp-tabs { display: flex; gap: 6px; }
