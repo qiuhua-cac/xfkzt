@@ -280,7 +280,19 @@
     .sp-file-card .icon { font-size: 32px; margin-bottom: 8px; }
     .sp-file-card .name { font-size: 13px; font-weight: 600; color: #1e293b; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sp-file-card .repo { font-size: 11px; color: #64748b; margin-top: 4px; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-file-card .purpose { font-size: 11px; color: #60a5fa; margin-top: 3px; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sp-file-card .lock { position: absolute; top: 8px; right: 8px; font-size: 14px; }
+    .sp-tab-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .sp-tabs { display: flex; gap: 6px; }
+    .sp-tab { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px; font-size: 12px; cursor: pointer; padding: 5px 12px; color: #64748b; }
+    .sp-tab.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+    .sp-sort-toggle { border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; font-size: 12px; cursor: pointer; padding: 5px 10px; color: #475569; }
+    .sp-sort-toggle.active { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    .sp-cross-toggle.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+    .sp-file-card.sort-mode { cursor: grab; }
+    .sp-file-card.sorting { opacity: 0.4; }
+    .sp-file-card.dragover { border-color: #3b82f6; background: #eff6ff; }
+    .sp-tab.drop-target { background: #fef3c7 !important; color: #92400e !important; border-color: #fcd34d !important; }
     
     /* 详情表单 */
     .sp-back-btn { background: none; border: none; font-size: 13px; color: #3b82f6; cursor: pointer; padding: 0; margin-bottom: 16px; display: flex; align-items: center; gap: 4px; font-weight: 600; }
@@ -442,6 +454,16 @@
         
         <!-- 视图 1：文件列表界面 -->
         <div class="sp-body" id="spFileListView">
+            <div class="sp-tab-bar">
+                <div class="sp-tabs">
+                    <button class="sp-tab" id="spTabAt" type="button">🚀 AT</button>
+                    <button class="sp-tab" id="spTabGit" type="button">🐙 Git</button>
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <button class="sp-sort-toggle" id="spSortToggle" type="button">✋ 排序</button>
+                    <button class="sp-sort-toggle sp-cross-toggle" id="spCrossToggle" type="button">🔀 跨域</button>
+                </div>
+            </div>
             <div id="spFileGrid" class="sp-file-grid"></div>
             <div class="sp-empty" id="spEmptyTip">暂无配置文件，请点击右上角 ⚙️ 设置进行添加</div>
         </div>
@@ -669,6 +691,18 @@
     const sandbox = document.getElementById('sandboxIframe');
 
     document.addEventListener('DOMContentLoaded', () => {
+        // 一次性迁移旧版单 key 仓库历史到 AT 平台，避免老数据丢失
+        try {
+            const old = localStorage.getItem('rescue_repo_history');
+            if (old) {
+                const arr = JSON.parse(old) || [];
+                const key = repoHistoryKey('at');
+                let cur = JSON.parse(localStorage.getItem(key) || '[]');
+                arr.forEach(x => { if (x && !cur.includes(x)) cur.unshift(x); });
+                localStorage.setItem(key, JSON.stringify(cur));
+                localStorage.removeItem('rescue_repo_history');
+            }
+        } catch (e) {}
         applyRemoteToForm();
         renderRepoHistory();
 
@@ -802,6 +836,7 @@
             dropdownBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                renderRepoHistory();
                 repoList.classList.toggle('active');
             });
         }
@@ -812,6 +847,7 @@
             const toggleRepoList = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                renderRepoHistory();
                 repoList.classList.toggle('active');
             };
             mobileRepoBtn.addEventListener('mousedown', toggleRepoList);
@@ -978,7 +1014,13 @@
     }
 
     // ==================== SQL 保护仓全新逻辑 ====================
-    let currentSqlFiles = []; 
+    let sqlFilesByRemote = { at: [], git: [] };
+    let currentSqlFiles = [];
+    let spLocalRemote = 'at';   // 保护仓弹窗内当前选中的平台标签
+    let spSortMode = false;      // 仓内排序开关，默认关
+    let spCrossMode = false;     // 跨域（跨平台标签）拖拽开关，默认关
+    let dragSrcIndex = null;
+    let dragSrc = null;          // 跨域拖拽来源 { remote, index }
     let currentSqlData = null; 
     // ====================== 双仓库配置（AT 主存 / Git 兜底，密钥拆分拼接） ======================
     const AT_PARTS = ['Gn63', 'a821j', 'GZLzq', 'XjMbu', 'UBxgS'];
@@ -1012,13 +1054,32 @@
     //     } catch (e) { console.warn('获取保护仓数据失败', e); throw e; }
     // }
 
-    async function fetchSQLProtectData() {
-        // 从 AT 仓独立文件 sql-protect.json 拉取保护仓数据；404 视为空仓
-        const apiBase = `https://api.atomgit.com/api/v5/repos/${AT_OWNER}/${AT_REPO}/contents/${SQL_PROTECT_FILE}`;
-        const headers = { 'Authorization': `Bearer ${AT_TOKEN}`, 'Accept': 'application/json' };
-        const res = await fetch(apiBase, { headers, cache: 'no-store' });
+    // 保护仓按平台取端点：AT 只存 AT 仓，Git 只存 Git 仓，两份独立
+    function getProtectConfig(which){
+        which = which === 'git' ? 'git' : 'at';
+        if (which === 'git') {
+            return { remote:'git', owner:GH_OWNER, repo:GH_REPO, token:GH_TOKEN,
+                apiBase:`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${SQL_PROTECT_FILE}`,
+                headers:{ 'Authorization':`token ${GH_TOKEN}`, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' } };
+        }
+        return { remote:'at', owner:AT_OWNER, repo:AT_REPO, token:AT_TOKEN,
+            apiBase:`https://api.atomgit.com/api/v5/repos/${AT_OWNER}/${AT_REPO}/contents/${SQL_PROTECT_FILE}`,
+            headers:{ 'Authorization':`Bearer ${AT_TOKEN}`, 'Accept':'application/json', 'Content-Type':'application/json' } };
+    }
+    function protectCacheKey(which){ return 'rescue_sql_protect_cache_' + (which === 'git' ? 'git' : 'at'); }
+    function loadProtectCache(which){
+        try { const c = localStorage.getItem(protectCacheKey(which)); if (c) sqlFilesByRemote[which] = JSON.parse(c); } catch(e) {}
+    }
+    function saveProtectCache(which, data){
+        try { localStorage.setItem(protectCacheKey(which), JSON.stringify(data)); } catch(e) { console.warn('保护仓本地缓存已满，跳过写入'); }
+    }
+
+    async function fetchSQLProtectData(which) {
+        which = which === 'git' ? 'git' : 'at';
+        const cfg = getProtectConfig(which);
+        const res = await fetch(cfg.apiBase, { headers: cfg.headers, cache: 'no-store' });
         if (res.status === 404) return [];
-        if (!res.ok) throw new Error('AT 保护仓状态码: ' + res.status);
+        if (!res.ok) throw new Error((which === 'git' ? 'Git' : 'AT') + ' 保护仓状态码: ' + res.status);
         const json = await res.json();
         let text = json.content ? base64ToUtf8(json.content) : '';
         if (!text && json.download_url) {
@@ -1027,24 +1088,25 @@
         }
         let data = JSON.parse(text || '[]');
         if (data && data.zk_store !== undefined) data = data.zk_store;
-        return JSON.parse(JSON.stringify(Array.isArray(data) ? data : [data]));
+        data = JSON.parse(JSON.stringify(Array.isArray(data) ? data : [data]));
+        data.forEach(f => { f.remote = which; });
+        return data;
     }
 
     async function initSQLProtectData() {
-        // 1. 先从本地缓存极速读取，只要读到就赋值
-        try {
-            const localCache = localStorage.getItem('rescue_sql_protect_cache');
-            if (localCache) {
-                currentSqlFiles = JSON.parse(localCache);
-                console.log('✅ 已从本地缓存加载保护仓数据');
-            }
-        } catch (e) { console.warn('读取本地缓存失败', e); }
+        // 1. 先读两平台各自的本地缓存极速加载
+        loadProtectCache('at');
+        loadProtectCache('git');
+        const which = getActiveRemote();
+        currentSqlFiles = sqlFilesByRemote[which];
+        console.log('✅ 已从本地缓存加载保护仓数据（' + (which === 'git' ? 'Git' : 'AT') + '）');
 
-        // 2. 发起网络请求（不用 await 卡死，后台静默运行）
-        fetchSQLProtectData().then(freshData => {
+        // 2. 后台静默拉当前平台云端最新
+        fetchSQLProtectData(which).then(freshData => {
             if (freshData && freshData.length > 0) {
-                currentSqlFiles = freshData;
-                localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(freshData));
+                sqlFilesByRemote[which] = freshData;
+                currentSqlFiles = sqlFilesByRemote[which];
+                saveProtectCache(which, freshData);
                 console.log('✅ 保护仓云端数据已静默更新');
             }
         }).catch(e => { console.warn('云端同步失败，继续使用本地缓存'); });
@@ -1075,6 +1137,11 @@
         document.getElementById('spDetailView').style.display = 'none';
         document.getElementById('spDetailFooter').style.display = 'none';
 
+        // 进入弹窗先对齐当前选中平台的保护仓数据（局部标签跟随主栏）
+        spLocalRemote = getActiveRemote();
+        const spWhich = spLocalRemote;
+        currentSqlFiles = sqlFilesByRemote[spWhich] || [];
+
         // ★ 核心突破：如果内存里已经有预加载好的数据，直接秒开渲染，完全不走网络请求！
         if (currentSqlFiles && currentSqlFiles.length > 0) {
             renderSQLFileList();
@@ -1085,12 +1152,14 @@
         document.getElementById('spFileGrid').innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:20px;">正在从服务器同步数据...</div>';
 
         try {
-            const freshData = await fetchSQLProtectData();
+            const freshData = await fetchSQLProtectData(spWhich);
             if (freshData && freshData.length > 0) {
+                sqlFilesByRemote[spWhich] = freshData;
                 currentSqlFiles = freshData;
-                try { localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(freshData)); } catch(e) {}
+                saveProtectCache(spWhich, freshData);
             } else {
-                currentSqlFiles = []; 
+                sqlFilesByRemote[spWhich] = [];
+                currentSqlFiles = [];
             }
             
             // 强制重新渲染
@@ -1107,24 +1176,132 @@
         document.getElementById('spDetailView').style.display = 'none';
         document.getElementById('spDetailFooter').style.display = 'none';
         document.getElementById('spFileListView').style.display = 'flex';
-        
+
+        // 标签高亮 + 排序开关态
+        const tabAt = document.getElementById('spTabAt');
+        const tabGit = document.getElementById('spTabGit');
+        if (tabAt) tabAt.classList.toggle('active', spLocalRemote !== 'git');
+        if (tabGit) tabGit.classList.toggle('active', spLocalRemote === 'git');
+        const sortBtn = document.getElementById('spSortToggle');
+        if (sortBtn) sortBtn.classList.toggle('active', spSortMode);
+        const crossBtn = document.getElementById('spCrossToggle');
+        if (crossBtn) crossBtn.classList.toggle('active', spCrossMode);
+
         const grid = document.getElementById('spFileGrid');
         const emptyTip = document.getElementById('spEmptyTip');
-        
+
         if (currentSqlFiles.length === 0) {
             grid.innerHTML = '';
             emptyTip.style.display = 'flex';
-        } else {
-            emptyTip.style.display = 'none';
-            grid.innerHTML = currentSqlFiles.map((f, i) => `
-                <div class="sp-file-card" onclick="openSQLFileDetail(${i})">
-                    ${f.locked ? '<span class="lock">🔒</span>' : ''}
-                    <div class="icon">📄</div>
-                    <div class="name">${f.name || '未命名'}</div>
-                    <div class="repo">${f.repo || '无仓库'}</div>
-                </div>
-            `).join('');
+            return;
         }
+        emptyTip.style.display = 'none';
+        grid.innerHTML = currentSqlFiles.map((f, i) => `
+            <div class="sp-file-card${(spSortMode || spCrossMode) ? ' sort-mode' : ''}" draggable="${spSortMode || spCrossMode}" data-index="${i}">
+                ${f.locked ? '<span class="lock">🔒</span>' : ''}
+                <div class="icon">📄</div>
+                <div class="name">${f.name || '未命名'}</div>
+                <div class="repo">${f.repo || '无仓库'}</div>
+                ${f.purpose ? `<div class="purpose">${f.purpose}</div>` : ''}
+            </div>
+        `).join('');
+
+        Array.from(grid.children).forEach(card => {
+            const idx = Number(card.dataset.index);
+            const draggable = spSortMode || spCrossMode;
+            card.addEventListener('click', () => { if (!spSortMode && !spCrossMode) openSQLFileDetail(idx); });
+            if (draggable) {
+                card.addEventListener('dragstart', onCardDragStart);
+                card.addEventListener('dragend', onCardDragEnd);
+            }
+            if (spSortMode) {
+                card.addEventListener('dragover', onCardDragOver);
+                card.addEventListener('drop', onCardDrop);
+            }
+        });
+    }
+
+    // 保护仓内 AT/Git 标签切换：各看各的，互不冲突
+    function switchSpRemote(which) {
+        spLocalRemote = which === 'git' ? 'git' : 'at';
+        currentSqlFiles = sqlFilesByRemote[spLocalRemote] || [];
+        renderSQLFileList();
+        if (currentSqlFiles.length === 0) {
+            fetchSQLProtectData(spLocalRemote).then(fresh => {
+                if (fresh && fresh.length > 0) {
+                    sqlFilesByRemote[spLocalRemote] = fresh;
+                    currentSqlFiles = fresh;
+                    saveProtectCache(spLocalRemote, fresh);
+                    renderSQLFileList();
+                }
+            }).catch(() => {});
+        }
+    }
+
+    // 排序开关：默认关；打开后可拖拽卡片调整顺序，网格自动对齐补齐
+    function toggleSpSortMode() {
+        spSortMode = !spSortMode;
+        renderSQLFileList();
+        showToast(spSortMode ? '排序模式：拖拽卡片调整顺序' : '已退出排序模式', 'info');
+    }
+
+    function onCardDragStart(e) {
+        dragSrcIndex = Number(this.dataset.index);
+        dragSrc = { remote: spLocalRemote, index: dragSrcIndex };
+        this.classList.add('sorting');
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            try { e.dataTransfer.setData('text/plain', String(dragSrcIndex)); } catch (_) {}
+        }
+    }
+    function onCardDragOver(e) { e.preventDefault(); this.classList.add('dragover'); }
+    function onCardDrop(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+        const target = Number(this.dataset.index);
+        if (dragSrcIndex === null || target === dragSrcIndex) return;
+        const arr = currentSqlFiles;
+        const [moved] = arr.splice(dragSrcIndex, 1);
+        arr.splice(target, 0, moved);
+        dragSrcIndex = null;
+        saveSQLProtectData();
+        renderSQLFileList();
+    }
+    function onCardDragEnd() {
+        this.classList.remove('sorting');
+        document.querySelectorAll('.sp-file-card.dragover').forEach(x => x.classList.remove('dragover'));
+        dragSrcIndex = null;
+        dragSrc = null;
+    }
+
+    // 跨域开关：打开后可把卡片拖到另一平台标签（AT ↔ Git）
+    function toggleSpCrossMode() {
+        spCrossMode = !spCrossMode;
+        renderSQLFileList();
+        showToast(spCrossMode ? '跨域模式：拖拽卡片到另一平台标签' : '已退出跨域模式', 'info');
+    }
+
+    // 把来源平台的条目移动到目标平台，两边各自缓存 + 云端各存一份
+    function moveCardToRemote(target) {
+        target = target === 'git' ? 'git' : 'at';
+        if (!dragSrc || target === dragSrc.remote) return;
+        const srcArr = sqlFilesByRemote[dragSrc.remote] || [];
+        const [moved] = srcArr.splice(dragSrc.index, 1);
+        if (!moved) { dragSrc = null; return; }
+        moved.remote = target;
+        const dstArr = sqlFilesByRemote[target] || [];
+        dstArr.push(moved);
+        sqlFilesByRemote[dragSrc.remote] = srcArr;
+        sqlFilesByRemote[target] = dstArr;
+        saveProtectCache(dragSrc.remote, srcArr);
+        saveProtectCache(target, dstArr);
+        pushProtectArray(dragSrc.remote, srcArr).catch(() => {});
+        pushProtectArray(target, dstArr).catch(() => {});
+        const from = dragSrc.remote;
+        dragSrc = null;
+        currentSqlFiles = sqlFilesByRemote[spLocalRemote] || [];
+        renderSQLFileList();
+        showToast(`已从 ${from === 'git' ? 'Git' : 'AT'} 移动到 ${target === 'git' ? 'Git' : 'AT'} 保护仓`, 'success');
     }
 
     function openSQLFileDetail(index) {
@@ -1173,38 +1350,39 @@
     //     } catch (e) { console.warn('SQL保存异常', e); }
     // }
 
-    // 覆盖写入 AT 仓独立文件 sql-protect.json
-    async function pushSqlProtectToAt() {
-        const apiBase = `https://api.atomgit.com/api/v5/repos/${AT_OWNER}/${AT_REPO}/contents/${SQL_PROTECT_FILE}`;
-        const headers = { 'Authorization': `Bearer ${AT_TOKEN}`, 'Accept': 'application/json', 'Content-Type': 'application/json' };
-        const payload = { zk_store: currentSqlFiles };
+    // 覆盖写入指定平台独立文件 sql-protect.json（AT→AT 仓，Git→Git 仓），可指定数组
+    async function pushProtectArray(which, arr) {
+        which = which === 'git' ? 'git' : 'at';
+        const cfg = getProtectConfig(which);
+        const payload = { zk_store: arr };
         const contentB64 = utf8ToBase64(JSON.stringify(payload, null, 2));
         let sha = null, exists = false;
-        const g = await fetch(apiBase, { method: 'GET', headers });
+        const g = await fetch(cfg.apiBase, { method: 'GET', headers: cfg.headers });
         if (g.ok) { const d = await g.json(); sha = d.sha; exists = true; }
         else if (g.status !== 404) throw new Error('获取保护仓 SHA 失败: ' + g.status);
         const body = {
-            message: `🔒 保护仓同步 ${new Date().toLocaleString('zh-CN')}`,
+            message: `🔒 保护仓同步(${which === 'git' ? 'Git' : 'AT'}) ${new Date().toLocaleString('zh-CN')}`,
             content: contentB64,
             branch: 'main'
         };
         if (sha) body.sha = sha;
-        const r = await fetch(apiBase, { method: exists ? 'PUT' : 'POST', headers, body: JSON.stringify(body) });
+        const r = await fetch(cfg.apiBase, { method: exists ? 'PUT' : 'POST', headers: cfg.headers, body: JSON.stringify(body) });
         if (!r.ok) throw new Error('保护仓推送失败: ' + r.status);
     }
 
+    async function pushSqlProtect(which) {
+        return pushProtectArray(which, currentSqlFiles);
+    }
+
     async function saveSQLProtectData() {
-        // 1. 本地缓存极速首读，爆仓跳过
+        const which = spLocalRemote === 'git' ? 'git' : 'at';
+        // 1. 本地缓存极速首读，爆仓跳过（按平台隔离）
+        saveProtectCache(which, currentSqlFiles);
+        // 2. 覆盖存入当前标签平台独立文件（AT→AT 仓，Git→Git 仓，互不混用）
         try {
-            localStorage.setItem('rescue_sql_protect_cache', JSON.stringify(currentSqlFiles));
+            await pushSqlProtect(which);
         } catch (e) {
-            console.warn('⚠️ 本地缓存空间已满，跳过缓存写入');
-        }
-        // 2. 覆盖存入 AT 仓独立文件（独立存储一份，不与云仓备份混用）
-        try {
-            await pushSqlProtectToAt();
-        } catch (e) {
-            console.warn('⚠️ AT 保护仓保存失败', e);
+            console.warn('⚠️ 保护仓保存失败', e);
         }
     }
 
@@ -1221,12 +1399,10 @@
         const repoKey = cfg.repo ? `${cfg.owner}/${cfg.repo}` : '未配置';
         
         if (!cfg.repo) return showToast('请先在上方配置你的仓库', 'error');
-        if (currentSqlFiles.some(f => f.repo === repoKey)) {
-            return showToast('该仓库已存在保护仓配置，不可重复创建', 'error');
-        }
 
-        // 创建临时草稿（纯内存，绝不落库、绝不 push）
+        // 创建临时草稿（纯内存，绝不落库、绝不 push）；同一仓库支持多份备份，不再判重
         currentSqlData = {
+            remote: spLocalRemote,
             name: `代码保护_${cfg.repo}`,
             repo: repoKey,
             purpose: '',
@@ -1260,6 +1436,22 @@
     }
     // 全局唯一注册（放在函数定义之后，bindEvents 外）
     document.getElementById('spSettingsBtn').addEventListener('click', handleSPSettingsClick);
+    document.getElementById('spTabAt').addEventListener('click', () => switchSpRemote('at'));
+    document.getElementById('spTabGit').addEventListener('click', () => switchSpRemote('git'));
+    document.getElementById('spSortToggle').addEventListener('click', toggleSpSortMode);
+    document.getElementById('spCrossToggle').addEventListener('click', toggleSpCrossMode);
+    [['spTabAt', 'at'], ['spTabGit', 'git']].forEach(([id, target]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('dragover', (e) => { if (spCrossMode) { e.preventDefault(); el.classList.add('drop-target'); } });
+        el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
+        el.addEventListener('drop', (e) => {
+            if (!spCrossMode) return;
+            e.preventDefault(); e.stopPropagation();
+            el.classList.remove('drop-target');
+            moveCardToRemote(target);
+        });
+    });
 
     // 只有点击保存配置，才会落库
     async function saveSQLConfig() {
@@ -1732,7 +1924,7 @@
             const putResp = await fetch(apiBase, { method: exists ? 'PUT' : 'POST', headers, body: JSON.stringify(body) });
             if (!putResp.ok) throw new Error(putResp.status === 401 ? 'Token 无效' : '推送失败');
 
-            showToast('覆盖成功！', 'success'); addHistory(windowsData[activeWindowIndex], code);
+            pushRepoHistory(which, cfg.owner + '/' + cfg.repo); renderRepoHistory(); showToast('覆盖成功！', 'success'); addHistory(windowsData[activeWindowIndex], code);
             const now = new Date();
             const backupItem = { time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }), timestamp: now.getTime(), content: code, name: (cfg.remote === 'at' ? 'AT' : 'Git') + '提交备份', locked: false };
             globalCloudBackups.unshift(backupItem); if (globalCloudBackups.length > 30) globalCloudBackups.pop(); savePersistedData(); renderCloudGrid();
@@ -2109,6 +2301,7 @@
             b.classList.toggle('active', b.dataset.remote === cfg.remote);
         });
         applyRemoteBtnVisibility();
+        renderRepoHistory();
     }
 
     function setActiveRemote(which){
@@ -2130,19 +2323,28 @@
         return { owner:c.owner, repo:c.repo, path:c.path, token:c.token, remote:c.remote };
     }
 
+    function repoHistoryKey(which){ return 'rescue_repo_history_' + (which === 'git' ? 'git' : 'at'); }
+
+    function pushRepoHistory(which, repoKey){
+        if (!repoKey || repoKey === '未配置') return;
+        const key = repoHistoryKey(which === 'git' ? 'git' : 'at');
+        let history = JSON.parse(localStorage.getItem(key) || '[]');
+        history = history.filter(x => x !== repoKey); history.unshift(repoKey); if (history.length > 30) history.pop();
+        localStorage.setItem(key, JSON.stringify(history));
+    }
+
     function saveToken(){
         const which = getActiveRemote();
         localStorage.setItem(REMOTE_KEY, which);
         const cfg = getRemoteConfig(which);
-        let history = JSON.parse(localStorage.getItem('rescue_repo_history')||'[]');
-        const repoKey = `${cfg.owner}/${cfg.repo}`;
-        history = history.filter(x=>x!==repoKey); history.unshift(repoKey); if(history.length>8) history.pop();
-        localStorage.setItem('rescue_repo_history',JSON.stringify(history)); renderRepoHistory(); showToast('配置已保存','success');
+        pushRepoHistory(which, `${cfg.owner}/${cfg.repo}`);
+        renderRepoHistory(); showToast('配置已保存','success');
     }
 
      function renderRepoHistory(){
+        const which = getActiveRemote();
         const listEl = document.getElementById('repoHistoryList');
-        const history = JSON.parse(localStorage.getItem('rescue_repo_history')||'[]');
+        const history = JSON.parse(localStorage.getItem(repoHistoryKey(which))||'[]');
         if(!history.length){ listEl.innerHTML = `<div class="repo-history-item" style="color:#94a3b8;">暂无历史仓库</div>`; return; }
         listEl.innerHTML = history.map(item=>{
             // ★ 修改：如果包含 '/'，只显示斜杠后面的仓库名
@@ -2156,9 +2358,10 @@
     }
 
     function deleteRepoHistory(e, val) {
-        e.stopPropagation(); 
-        let history = JSON.parse(localStorage.getItem('rescue_repo_history')||'[]');
-        history = history.filter(x => x !== val); localStorage.setItem('rescue_repo_history', JSON.stringify(history)); renderRepoHistory(); showToast('已删除该历史记录', 'success');
+        e.stopPropagation();
+        const key = repoHistoryKey(getActiveRemote());
+        let history = JSON.parse(localStorage.getItem(key)||'[]');
+        history = history.filter(x => x !== val); localStorage.setItem(key, JSON.stringify(history)); renderRepoHistory(); showToast('已删除该历史记录', 'success');
     }
 
     function selectRepoHistory(val){
@@ -2186,7 +2389,7 @@
             } else { throw new Error('远程文件内容为空'); }
             const win = windowsData[activeWindowIndex];
             if(editor.getValue().trim()!==''){ if(!confirm('当前编辑器有内容，是否覆盖？')){ btn.disabled=false; return; } }
-            editor.setValue(text); win.content = text; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); addLog(win,'拉取成功',`[${cfg.remote==='at'?'AT':'Git'}] ${cfg.path}`); addHistory(win,text); savePersistedData(); runValidation(); showToast('✅ 拉取完成','success');
+            pushRepoHistory(which, cfg.owner + '/' + cfg.repo); renderRepoHistory(); editor.setValue(text); win.content = text; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); addLog(win,'拉取成功',`[${cfg.remote==='at'?'AT':'Git'}] ${cfg.path}`); addHistory(win,text); savePersistedData(); runValidation(); showToast('✅ 拉取完成','success');
         }catch(e){
             if (e.name === 'QuotaExceededError' || e.message.includes('quota')) {
                 showToast('本地存储空间已满，代码已成功拉取但不保存快照', 'success');
