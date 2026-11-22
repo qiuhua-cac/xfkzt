@@ -1698,7 +1698,7 @@
 
     function openSubmitConfirm(which) {
         submitTarget = (which === 'git') ? 'git' : 'at';
-        const cfg = getRemoteConfig(submitTarget);
+        const cfg = readFormFileConfig(submitTarget);
         document.getElementById('scRepoName').textContent = (cfg.owner || '?') + '/' + (cfg.repo || '?') + (cfg.remote === 'at' ? '（AT）' : '（Git）');
         document.getElementById('scTime').textContent = new Date().toLocaleString('zh-CN');
         document.getElementById('submitConfirmModal').classList.add('active');
@@ -1711,7 +1711,7 @@
     async function pushCodeTo(which) {
         which = (which === 'git') ? 'git' : 'at';
         try {
-            const cfg = getRemoteConfig(which);
+            const cfg = readFormFileConfig(which);
             if (!cfg.owner || !cfg.repo || !cfg.path || !cfg.token) return showToast('请填写完整配置', 'error');
             const code = editor.getValue(); if (!code || code.length < 10) return showToast('内容为空，无法提交', 'error');
             if (currentErrors.length > 0) return showToast('检测有报错，无法提交', 'error');
@@ -2073,6 +2073,26 @@
             headers:{ 'Authorization':`Bearer ${AT_TOKEN}`, 'Accept':'application/json', 'Content-Type':'application/json' } };
     }
 
+    // 主文件拉取/推送配置：优先取配置栏填写的 owner/repo/path，留空才用预设默认值
+    function readFormFileConfig(which){
+        which = which === 'git' ? 'git' : 'at';
+        const def = which === 'git'
+            ? { owner:GH_OWNER, repo:GH_REPO, path:GH_PATH, token:GH_TOKEN, accept:'application/vnd.github.v3+json' }
+            : { owner:AT_OWNER, repo:AT_REPO, path:AT_PATH, token:AT_TOKEN, accept:'application/json' };
+        const formOwner = (document.getElementById('ghOwner').value || '').trim();
+        const formRepo  = (document.getElementById('ghRepo').value  || '').trim();
+        const formPath  = (document.getElementById('ghPath').value  || '').trim();
+        const owner = formOwner || def.owner;
+        const repo  = formRepo  || def.repo;
+        const path  = formPath  || def.path;
+        const apiBase = which === 'git'
+            ? `https://api.github.com/repos/${owner}/${repo}/contents/${path}`
+            : `https://api.atomgit.com/api/v5/repos/${owner}/${repo}/contents/${path}`;
+        const auth = which === 'git' ? `token ${def.token}` : `Bearer ${def.token}`;
+        return { remote:which, owner, repo, path, token:def.token, apiBase,
+            headers:{ 'Authorization':auth, 'Accept':def.accept, 'Content-Type':'application/json' } };
+    }
+
     function getBackupApiBase(cfg){
         return cfg.remote === 'git'
             ? `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${BACKUP_FILE}`
@@ -2141,13 +2161,21 @@
     async function pullCodeFrom(which){
         which = (which === 'git') ? 'git' : 'at';
         try{
-            const cfg = getRemoteConfig(which);
+            const cfg = readFormFileConfig(which);
             if(!cfg.owner||!cfg.repo||!cfg.path) return showToast('填写仓库信息','error');
             const btnId = which === 'git' ? 'pullGitBtn' : 'pullAtBtn';
             const btn = document.getElementById(btnId); btn.disabled = true; showToast('拉取远程文件...','info');
             const res = await fetch(cfg.apiBase, { headers: cfg.headers });
             if(!res.ok){ if(res.status===404) throw new Error('远程文件不存在'); throw new Error(`请求错误 ${res.status}`); }
-            const json = await res.json(); const text = base64ToUtf8(json.content); const win = windowsData[activeWindowIndex];
+            const json = await res.json();
+            let text = '';
+            if (json.content) { text = base64ToUtf8(json.content); }
+            else if (json.download_url) {
+                const dr = await fetch(json.download_url, { cache:'no-store' });
+                if (!dr.ok) throw new Error('下载远程文件失败: ' + dr.status);
+                text = await dr.text();
+            } else { throw new Error('远程文件内容为空'); }
+            const win = windowsData[activeWindowIndex];
             if(editor.getValue().trim()!==''){ if(!confirm('当前编辑器有内容，是否覆盖？')){ btn.disabled=false; return; } }
             editor.setValue(text); win.content = text; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); addLog(win,'拉取成功',`[${cfg.remote==='at'?'AT':'Git'}] ${cfg.path}`); addHistory(win,text); savePersistedData(); runValidation(); showToast('✅ 拉取完成','success');
         }catch(e){
