@@ -701,6 +701,8 @@
     const sandbox = document.getElementById('sandboxIframe');
 
     document.addEventListener('DOMContentLoaded', () => {
+        // 刷新页面后默认回到 AT，不记忆上次选中的 Git
+        localStorage.setItem(REMOTE_KEY, 'at');
         // 一次性迁移旧版单 key 仓库历史到 AT 平台，避免老数据丢失
         try {
             const old = localStorage.getItem('rescue_repo_history');
