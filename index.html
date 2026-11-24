@@ -2015,6 +2015,10 @@
         ['dragleave', 'drop'].forEach(e => d.addEventListener(e, () => d.classList.remove('dragover')));
         d.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
         f.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+        // 移动端无法拖拽，点击上传区唤起系统文件选择器（仅移动端补充，不改动 PC 端拖拽逻辑）
+        if (window.innerWidth <= 768) {
+            d.addEventListener('click', () => { if (f) f.click(); });
+        }
     }
 
     function handleFile(file) {
