@@ -145,6 +145,9 @@
         .repo-selector-wrapper input { width: 100%; height: 100%; padding-right: 32px; }
         .repo-dropdown-btn { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: #475569; z-index: 10; transition: background 0.2s; }
         .config-row #ghPath { width: 140px; flex-shrink: 0; }
+        .path-selector-wrapper { position: relative; display: flex; align-items: center; width: 140px; flex-shrink: 0; height: 30px; }
+        .path-selector-wrapper input { width: 100%; height: 100%; padding-right: 28px; }
+        .path-dropdown-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b; font-size: 10px; padding: 2px; z-index: 10; }
         .config-row #ghToken { flex: 1; min-width: 200px; }
         .config-row #saveConfigBtn { width: 90px; flex-shrink: 0; height: 30px; padding: 0; flex: 0 0 auto; font-size: 13px; border-radius: 4px; }
         .remote-switch { display: flex; gap: 4px; flex-shrink: 0; height: 30px; }
@@ -182,6 +185,7 @@
         .config-row { padding: 8px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: #fff; border-radius: 10px 10px 0 0; }
         .config-row input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; outline: none; min-width: 0; flex: 1 1 40%; }
         .config-row #ghToken { flex: 1 1 100%; }
+        .path-selector-wrapper { position: relative; display: flex; align-items: center; gap: 6px; flex: 1 1 40%; min-width: 0; height: auto; }
         .config-row #saveConfigBtn { padding: 6px 12px; flex: 1 1 100%; height: auto; }
         .main-workspace { display: flex; flex: 1; flex-direction: column; padding: 10px; margin: 10px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow: hidden; position: relative; min-height: 0; }
         .left-panel { position: fixed; left: 0; top: 0; bottom: 0; width: 85vw; max-width: 320px; height: 100vh; z-index: 100; transform: translateX(-120%); box-shadow: 2px 0 15px rgba(0,0,0,0.1); border-radius: 0; overflow-y: auto; background: #fff; display: flex; flex-direction: column; transition: transform 0.3s ease; }
@@ -366,11 +370,11 @@
             border-color: #3b82f6;
         }
         /* 移动端隐藏原来的 ▼ 箭头 */
-        .repo-dropdown-btn {
+        .repo-dropdown-btn, .path-dropdown-btn {
             display: none !important;
         }
         /* 关键：wrapper 必须是 relative 锚点，允许内容 flex 排列，但高度不锁死 */
-        .repo-selector-wrapper {
+        .repo-selector-wrapper, .path-selector-wrapper {
             position: relative;
             display: flex !important;
             align-items: center !important;
@@ -379,7 +383,7 @@
             min-width: 120px;
             /* 这里不再限制高度，交给 input 决定 */
         }
-        .repo-selector-wrapper input {
+        .repo-selector-wrapper input, .path-selector-wrapper input {
             flex: 1 !important;
             width: 100% !important;
             height: 34px !important;
@@ -512,6 +516,7 @@
             <button class="sp-btn-secondary" id="spDownloadBtn">📥 下载并覆盖</button>
             <button class="sp-btn-warning" id="spLockBtn">🔓 解锁修改</button>
             <button class="sp-btn-secondary" id="spModifyBtn" style="display:none;">✏️ 修改配置</button>
+            <button class="sp-btn-danger" id="spDeleteBtn">🗑 删除文件</button>
         </div>
     </div>
 </div>
@@ -557,7 +562,12 @@
             <button class="mobile-repo-btn" id="mobileRepoBtn" title="历史仓库">📜</button>
             <div class="repo-history-list" id="repoHistoryList"></div>
         </div>
-        <input type="text" id="ghPath" value="index.html" placeholder="路径">
+        <div class="path-selector-wrapper">
+            <input type="text" id="ghPath" value="index.html" placeholder="路径">
+            <button type="button" class="path-dropdown-btn" id="pathDropdownBtn">▼</button>
+            <button class="mobile-repo-btn" id="mobilePathBtn" title="历史路径">📜</button>
+            <div class="repo-history-list" id="pathHistoryList"></div>
+        </div>
         <input type="password" id="ghToken" placeholder="Token">
         <button class="btn btn-secondary" id="saveConfigBtn">保存配置</button>
     </div>
@@ -840,6 +850,28 @@
                 repoList.classList.toggle('active');
             });
         }
+        const pathDropdownBtn = document.getElementById('pathDropdownBtn');
+        const mobilePathBtn = document.getElementById('mobilePathBtn');
+        const pathList = document.getElementById('pathHistoryList');
+        if (pathDropdownBtn && pathList) {
+            pathDropdownBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                renderPathHistory();
+                pathList.classList.toggle('active');
+            });
+        }
+        if (mobilePathBtn && pathList) {
+            const togglePathList = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                renderPathHistory();
+                pathList.classList.toggle('active');
+            };
+            mobilePathBtn.addEventListener('mousedown', togglePathList);
+            mobilePathBtn.addEventListener('touchstart', togglePathList, { passive: false });
+            mobilePathBtn.addEventListener('click', togglePathList);
+        }
 
         // 移动端：专属打开历史仓库按钮
         if (mobileRepoBtn) {
@@ -857,7 +889,7 @@
 
         // 点击页面空白处关闭列表
         document.addEventListener('click', (e) => { 
-            // 精准判断：点击是否发生在列表内
+            // 精准判断：点击是否发生在仓库列表内
             const isInsideList = repoList.contains(e.target);
             // 精准判断：点击是否发生在电脑端 ▼ 按钮上（及内部子元素）
             const isDropdownBtn = dropdownBtn && (e.target === dropdownBtn || dropdownBtn.contains(e.target));
@@ -867,6 +899,13 @@
             // 只有当列表是开启状态，且点击的【既不是列表内，也不是两个按钮】时，才关闭
             if (repoList.classList.contains('active') && !isInsideList && !isDropdownBtn && !isMobileBtn) {
                 repoList.classList.remove('active'); 
+            }
+            // 路径历史浮层：点击外部关闭
+            if (pathList && pathList.classList.contains('active')) {
+                const isInsidePath = pathList.contains(e.target);
+                const isPathBtn = (pathDropdownBtn && (e.target === pathDropdownBtn || pathDropdownBtn.contains(e.target)))
+                    || (mobilePathBtn && (e.target === mobilePathBtn || mobilePathBtn.contains(e.target)));
+                if (!isInsidePath && !isPathBtn) pathList.classList.remove('active');
             }
         });
         
@@ -982,7 +1021,7 @@
         document.getElementById('spUploadBtn').addEventListener('click', uploadToSQLProtect);
         document.getElementById('spDownloadBtn').addEventListener('click', downloadFromSQLProtect);
         document.getElementById('spLockBtn').addEventListener('click', () => {
-            if (currentSqlData && currentSqlData.locked) showSPPasswordOverlay();
+            if (currentSqlData && currentSqlData.locked) { spPendingAction = 'unlock'; showSPPasswordOverlay(); }
             else lockSQLProtect();
         });
         document.getElementById('spModifyBtn').addEventListener('click', () => {
@@ -995,15 +1034,18 @@
             document.getElementById('spDownloadBtn').disabled = true;
         });
         document.getElementById('spSaveConfigBtn').addEventListener('click', saveSQLConfig);
+        document.getElementById('spDeleteBtn').addEventListener('click', requestDeleteSQLFile);
         document.getElementById('spPwdCancel').addEventListener('click', () => {
             document.getElementById('spPwdOverlay').classList.remove('active');
+            spPendingAction = 'unlock';
         });
         document.getElementById('spPwdOk').addEventListener('click', () => {
             const pwd = document.getElementById('spPwdInput').value;
             if (pwd === 'qiuhua') {
                 document.getElementById('spPwdOverlay').classList.remove('active');
                 document.getElementById('spPwdInput').value = '';
-                unlockSQLProtect();
+                if (spPendingAction === 'delete') { doDeleteSQLFile(); }
+                else { unlockSQLProtect(); }
             } else {
                 showToast('密码错误', 'error');
             }
@@ -1022,6 +1064,7 @@
     let dragSrcIndex = null;
     let dragSrc = null;          // 跨域拖拽来源 { remote, index }
     let currentSqlData = null; 
+    let spPendingAction = 'unlock'; // unlock=解锁修改；delete=解锁后删除文件
     // ====================== 双仓库配置（AT 主存 / Git 兜底，密钥拆分拼接） ======================
     const AT_PARTS = ['Gn63', 'a821j', 'GZLzq', 'XjMbu', 'UBxgS'];
     const AT_TOKEN = AT_PARTS.join('');
@@ -1054,17 +1097,22 @@
     //     } catch (e) { console.warn('获取保护仓数据失败', e); throw e; }
     // }
 
-    // 保护仓按平台取端点：AT 只存 AT 仓，Git 只存 Git 仓，两份独立
-    function getProtectConfig(which){
-        which = which === 'git' ? 'git' : 'at';
-        if (which === 'git') {
-            return { remote:'git', owner:GH_OWNER, repo:GH_REPO, token:GH_TOKEN,
-                apiBase:`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${SQL_PROTECT_FILE}`,
-                headers:{ 'Authorization':`token ${GH_TOKEN}`, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' } };
-        }
+    // 保护仓：云端统一只存 AT 仓；界面 AT/Git 标签仅区分备份来源，不再各存一份
+    function getProtectConfig(){
         return { remote:'at', owner:AT_OWNER, repo:AT_REPO, token:AT_TOKEN,
             apiBase:`https://api.atomgit.com/api/v5/repos/${AT_OWNER}/${AT_REPO}/contents/${SQL_PROTECT_FILE}`,
             headers:{ 'Authorization':`Bearer ${AT_TOKEN}`, 'Accept':'application/json', 'Content-Type':'application/json' } };
+    }
+    // 合并两组为云端全量数组
+    function protectAllArray(){
+        return (sqlFilesByRemote.at || []).concat(sqlFilesByRemote.git || []);
+    }
+    // 云端全量按条目 remote 标记拆分回两组（仅用于界面分组）
+    function splitProtectToRemote(all){
+        const at = [], git = [];
+        (all || []).forEach(f => { (f.remote === 'git' ? git : at).push(f); });
+        sqlFilesByRemote.at = at; sqlFilesByRemote.git = git;
+        saveProtectCache('at', at); saveProtectCache('git', git);
     }
     function protectCacheKey(which){ return 'rescue_sql_protect_cache_' + (which === 'git' ? 'git' : 'at'); }
     function loadProtectCache(which){
@@ -1075,11 +1123,11 @@
     }
 
     async function fetchSQLProtectData(which) {
-        which = which === 'git' ? 'git' : 'at';
-        const cfg = getProtectConfig(which);
+        const w = which === 'git' ? 'git' : 'at';
+        const cfg = getProtectConfig();
         const res = await fetch(cfg.apiBase, { headers: cfg.headers, cache: 'no-store' });
-        if (res.status === 404) return [];
-        if (!res.ok) throw new Error((which === 'git' ? 'Git' : 'AT') + ' 保护仓状态码: ' + res.status);
+        if (res.status === 404) { splitProtectToRemote([]); return sqlFilesByRemote[w] || []; }
+        if (!res.ok) throw new Error('AT 保护仓状态码: ' + res.status);
         const json = await res.json();
         let text = json.content ? base64ToUtf8(json.content) : '';
         if (!text && json.download_url) {
@@ -1089,8 +1137,8 @@
         let data = JSON.parse(text || '[]');
         if (data && data.zk_store !== undefined) data = data.zk_store;
         data = JSON.parse(JSON.stringify(Array.isArray(data) ? data : [data]));
-        data.forEach(f => { f.remote = which; });
-        return data;
+        splitProtectToRemote(data);
+        return sqlFilesByRemote[w] || [];
     }
 
     async function initSQLProtectData() {
@@ -1295,8 +1343,7 @@
         sqlFilesByRemote[target] = dstArr;
         saveProtectCache(dragSrc.remote, srcArr);
         saveProtectCache(target, dstArr);
-        pushProtectArray(dragSrc.remote, srcArr).catch(() => {});
-        pushProtectArray(target, dstArr).catch(() => {});
+        pushProtectArray(protectAllArray()).catch(() => {});
         const from = dragSrc.remote;
         dragSrc = null;
         currentSqlFiles = sqlFilesByRemote[spLocalRemote] || [];
@@ -1331,6 +1378,7 @@
         document.getElementById('spStatus').style.color = isLocked ? '#ef4444' : '#16a34a';
         
         document.getElementById('spSaveConfigBtn').style.display = 'none';
+        document.getElementById('spDeleteBtn').style.display = (window.isEditingNew || !currentSqlData) ? 'none' : 'block';
         document.getElementById('spModifyBtn').style.display = isLocked ? 'none' : 'block';
         document.getElementById('spUploadBtn').disabled = isLocked;
         document.getElementById('spDownloadBtn').disabled = false;
@@ -1350,10 +1398,9 @@
     //     } catch (e) { console.warn('SQL保存异常', e); }
     // }
 
-    // 覆盖写入指定平台独立文件 sql-protect.json（AT→AT 仓，Git→Git 仓），可指定数组
-    async function pushProtectArray(which, arr) {
-        which = which === 'git' ? 'git' : 'at';
-        const cfg = getProtectConfig(which);
+    // 全量覆盖写入 AT 仓 sql-protect.json（不再按平台分文件）
+    async function pushProtectArray(arr) {
+        const cfg = getProtectConfig();
         const payload = { zk_store: arr };
         const contentB64 = utf8ToBase64(JSON.stringify(payload, null, 2));
         let sha = null, exists = false;
@@ -1361,7 +1408,7 @@
         if (g.ok) { const d = await g.json(); sha = d.sha; exists = true; }
         else if (g.status !== 404) throw new Error('获取保护仓 SHA 失败: ' + g.status);
         const body = {
-            message: `🔒 保护仓同步(${which === 'git' ? 'Git' : 'AT'}) ${new Date().toLocaleString('zh-CN')}`,
+            message: `🔒 保护仓同步(AT) ${new Date().toLocaleString('zh-CN')}`,
             content: contentB64,
             branch: 'main'
         };
@@ -1370,17 +1417,17 @@
         if (!r.ok) throw new Error('保护仓推送失败: ' + r.status);
     }
 
-    async function pushSqlProtect(which) {
-        return pushProtectArray(which, currentSqlFiles);
+    async function pushSqlProtect() {
+        return pushProtectArray(protectAllArray());
     }
 
     async function saveSQLProtectData() {
-        const which = spLocalRemote === 'git' ? 'git' : 'at';
-        // 1. 本地缓存极速首读，爆仓跳过（按平台隔离）
-        saveProtectCache(which, currentSqlFiles);
-        // 2. 覆盖存入当前标签平台独立文件（AT→AT 仓，Git→Git 仓，互不混用）
+        // 1. 两组本地缓存都落一份（仅用于界面分组极速首读）
+        saveProtectCache('at', sqlFilesByRemote.at || []);
+        saveProtectCache('git', sqlFilesByRemote.git || []);
+        // 2. 全量统一写入 AT 仓
         try {
-            await pushSqlProtect(which);
+            await pushProtectArray(protectAllArray());
         } catch (e) {
             console.warn('⚠️ 保护仓保存失败', e);
         }
@@ -1421,6 +1468,7 @@
         document.getElementById('spName').disabled = false;
         document.getElementById('spPurpose').disabled = false;
         document.getElementById('spSaveConfigBtn').style.display = 'block';
+        document.getElementById('spDeleteBtn').style.display = 'none';
         document.getElementById('spModifyBtn').style.display = 'none';
         document.getElementById('spUploadBtn').disabled = true;
         document.getElementById('spDownloadBtn').disabled = true;
@@ -1530,6 +1578,32 @@
         await saveSQLProtectData();
         renderSQLDetailUI();
         showToast('已解锁，请点击修改配置', 'success');
+    }
+
+    // 删除入口：上锁条目先解锁（仅解锁时验一次密码），解锁态直接删除不再二次验密
+    function requestDeleteSQLFile() {
+        if (!currentSqlData) return;
+        if (currentSqlData.locked) {
+            spPendingAction = 'delete';
+            showSPPasswordOverlay();
+        } else {
+            doDeleteSQLFile();
+        }
+    }
+
+    async function doDeleteSQLFile() {
+        if (!currentSqlData) return;
+        if (!confirm('确定要从保护仓删除该文件吗？')) return;
+        const target = currentSqlData;
+        // 从两组全量中移除该条目
+        sqlFilesByRemote.at = (sqlFilesByRemote.at || []).filter(f => f !== target);
+        sqlFilesByRemote.git = (sqlFilesByRemote.git || []).filter(f => f !== target);
+        currentSqlFiles = sqlFilesByRemote[spLocalRemote] || [];
+        currentSqlData = null;
+        window.isEditingNew = false;
+        await saveSQLProtectData();
+        renderSQLFileList();
+        showToast('已删除该保护仓文件', 'success');
     }
     // ================= 核心搜索逻辑 =================
     function doSearch(direction) {
@@ -1924,7 +1998,7 @@
             const putResp = await fetch(apiBase, { method: exists ? 'PUT' : 'POST', headers, body: JSON.stringify(body) });
             if (!putResp.ok) throw new Error(putResp.status === 401 ? 'Token 无效' : '推送失败');
 
-            pushRepoHistory(which, cfg.owner + '/' + cfg.repo); renderRepoHistory(); showToast('覆盖成功！', 'success'); addHistory(windowsData[activeWindowIndex], code);
+            pushRepoHistory(which, cfg.owner + '/' + cfg.repo); pushPathHistory(which, cfg.path); renderRepoHistory(); showToast('覆盖成功！', 'success'); addHistory(windowsData[activeWindowIndex], code);
             const now = new Date();
             const backupItem = { time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }), timestamp: now.getTime(), content: code, name: (cfg.remote === 'at' ? 'AT' : 'Git') + '提交备份', locked: false };
             globalCloudBackups.unshift(backupItem); if (globalCloudBackups.length > 30) globalCloudBackups.pop(); savePersistedData(); renderCloudGrid();
@@ -2302,6 +2376,7 @@
         });
         applyRemoteBtnVisibility();
         renderRepoHistory();
+        renderPathHistory();
     }
 
     function setActiveRemote(which){
@@ -2338,6 +2413,7 @@
         localStorage.setItem(REMOTE_KEY, which);
         const cfg = getRemoteConfig(which);
         pushRepoHistory(which, `${cfg.owner}/${cfg.repo}`);
+        pushPathHistory(which, document.getElementById('ghPath').value.trim());
         renderRepoHistory(); showToast('配置已保存','success');
     }
 
@@ -2362,6 +2438,45 @@
         const key = repoHistoryKey(getActiveRemote());
         let history = JSON.parse(localStorage.getItem(key)||'[]');
         history = history.filter(x => x !== val); localStorage.setItem(key, JSON.stringify(history)); renderRepoHistory(); showToast('已删除该历史记录', 'success');
+    }
+
+    // ================= 文件路径历史（AT / Git 各自独立计算） =================
+    function pathHistoryKey(which){ return 'rescue_path_history_' + (which === 'git' ? 'git' : 'at'); }
+
+    function pushPathHistory(which, pathVal){
+        which = which === 'git' ? 'git' : 'at';
+        const p = (pathVal || '').trim(); if(!p) return;
+        const key = pathHistoryKey(which);
+        let arr = JSON.parse(localStorage.getItem(key) || '[]');
+        arr = arr.filter(x => x !== p); arr.unshift(p);
+        if (arr.length > 20) arr.pop();
+        localStorage.setItem(key, JSON.stringify(arr));
+    }
+
+    function renderPathHistory(){
+        const listEl = document.getElementById('pathHistoryList'); if(!listEl) return;
+        const which = getActiveRemote();
+        let arr = JSON.parse(localStorage.getItem(pathHistoryKey(which)) || '[]');
+        if(!arr.length){ listEl.innerHTML = `<div class="repo-history-item" style="color:#94a3b8;">暂无路径历史</div>`; return; }
+        listEl.innerHTML = arr.map(item => `
+            <div class="repo-history-item" onclick="selectPathHistory('${item}')">
+                <span>${item}</span>
+                <span class="del-history-btn" onclick="deletePathHistory(event,'${item}')" title="删除">✕</span>
+            </div>`).join('');
+    }
+
+    function selectPathHistory(val){
+        document.getElementById('ghPath').value = val;
+        document.getElementById('pathHistoryList').classList.remove('active');
+    }
+
+    function deletePathHistory(e, val){
+        e.stopPropagation();
+        const key = pathHistoryKey(getActiveRemote());
+        let arr = JSON.parse(localStorage.getItem(key) || '[]');
+        arr = arr.filter(x => x !== val);
+        localStorage.setItem(key, JSON.stringify(arr));
+        renderPathHistory();
     }
 
     function selectRepoHistory(val){
@@ -2389,7 +2504,7 @@
             } else { throw new Error('远程文件内容为空'); }
             const win = windowsData[activeWindowIndex];
             if(editor.getValue().trim()!==''){ if(!confirm('当前编辑器有内容，是否覆盖？')){ btn.disabled=false; return; } }
-            pushRepoHistory(which, cfg.owner + '/' + cfg.repo); renderRepoHistory(); editor.setValue(text); win.content = text; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); addLog(win,'拉取成功',`[${cfg.remote==='at'?'AT':'Git'}] ${cfg.path}`); addHistory(win,text); savePersistedData(); runValidation(); showToast('✅ 拉取完成','success');
+            pushRepoHistory(which, cfg.owner + '/' + cfg.repo); pushPathHistory(which, cfg.path); renderRepoHistory(); editor.setValue(text); win.content = text; isReadOnly = true; editor.setOption('readOnly',true); updateToggleBtnUI(); addLog(win,'拉取成功',`[${cfg.remote==='at'?'AT':'Git'}] ${cfg.path}`); addHistory(win,text); savePersistedData(); runValidation(); showToast('✅ 拉取完成','success');
         }catch(e){
             if (e.name === 'QuotaExceededError' || e.message.includes('quota')) {
                 showToast('本地存储空间已满，代码已成功拉取但不保存快照', 'success');
@@ -2422,6 +2537,8 @@
     window.toggleLockCloudBackup = toggleLockCloudBackup;
     window.selectRepoHistory = selectRepoHistory;
     window.deleteRepoHistory = deleteRepoHistory;
+    window.selectPathHistory = selectPathHistory;
+    window.deletePathHistory = deletePathHistory;
 </script>
 </body>
 </html>
